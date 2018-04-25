@@ -34,9 +34,12 @@
     <Image Include="jju.ico">
       <Filter>리소스 파일</Filter>
     </Image>
+    <Image Include="toolbar1.bmp">
+      <Filter>리소스 파일</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="180424_Main.cpp">
+    <ClCompile Include="180425_Main.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>
