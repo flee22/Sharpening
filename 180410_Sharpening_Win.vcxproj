@@ -131,7 +131,7 @@
     <Image Include="toolbar1.bmp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="180425_Main.cpp" />
+    <ClCompile Include="180426_Main.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
