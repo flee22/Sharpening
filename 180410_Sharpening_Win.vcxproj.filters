@@ -39,7 +39,7 @@
     </Image>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="180426_Main.cpp">
+    <ClCompile Include="WinMain.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>
