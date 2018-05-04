@@ -1,5 +1,4 @@
 #pragma comment(linker, "/entry:WinMainCRTStartup /subsystem:console") // Using this comment can use Command prompt 
-//#pragma comment(lib, "ComCtl32.lib") // Using for __imp__InitCommonControlsEx
 
 #include "Resource.h"
 #include "stdafx.h" // include Windows.h
@@ -9,7 +8,6 @@
 #include <sstream>
 #include <algorithm>
 #include <iomanip>
-//#include <CommCtrl.h> // for Init Status Bars
 
 using namespace std;
 
@@ -64,7 +62,7 @@ struct BmpInfoHeader {
 #pragma pack(pop)
 
 HINSTANCE g_hInst;
-HWND g_hDlg, g_hMainWnd, g_hImgWnd;
+HWND g_hDlg, g_hMainWnd, g_hImgWnd, g_hCropWnd;
 HBITMAP MyBitmap, MyBitmap_temp;
 
 int g_is_clicked = 0;
@@ -73,7 +71,7 @@ int g_argc;
 char g_argv[MAX_PATH];
 char g_argv_bmp[MAX_PATH];
 int g_hpf[15];
-int g_hpf_alpha;
+int g_hpf_coef;
 
 int IMG_SIZE_Y = iWidth * iHeight;
 int IMG_SIZE_YCrCb = IMG_SIZE_Y + (IMG_SIZE_Y >> 1); // Full Size = Y size + CrCb size
@@ -83,7 +81,7 @@ int CROP_H = g_Height_e - g_Height_s;
 int CROP_W = g_Width_e - g_Width_s;
 
 
-void Convert_yvu2rgb(int * yvu_array, int width, int height, unsigned char * rgb_array)
+void Yvu2rgb(int * yvu_array, int width, int height, unsigned char * rgb_array)
 {
 	int i, j, k;
 	int *y, *u, *v, *r, *g, *b, *r_tmp, *g_tmp, *b_tmp;
@@ -262,7 +260,7 @@ void Sharpening(char * argv)
 		}
 
 		// Coeficient for Sharpening strength
-		alpha = g_hpf_alpha;
+		alpha = g_hpf_coef;
 
 		// Sharpening
 		for (j = 0; j < iHeight; j++)
@@ -431,7 +429,7 @@ void Sharpening(char * argv)
 		/***************************/
 		/*       Create BMP        */
 		/***************************/
-		Convert_yvu2rgb(image_temp_int, iWidth, iHeight, rgb);
+		Yvu2rgb(image_temp_int, iWidth, iHeight, rgb);
 
 		// Set BMP Header
 		file4.seekp(0, ios::beg);
@@ -462,7 +460,7 @@ void Sharpening(char * argv)
 	}
 }
 
-void DrawBitmap(HDC hdc, int x, int y, HBITMAP hBit)
+void DrawBitmap(HDC hdc, int x, int y, HBITMAP hBitmap)
 {
 	int bx, by;
 	HDC MemDC;
@@ -470,20 +468,15 @@ void DrawBitmap(HDC hdc, int x, int y, HBITMAP hBit)
 	HBITMAP OldBitmap;
 
 	MemDC = CreateCompatibleDC(hdc);
-	OldBitmap = (HBITMAP)SelectObject(MemDC, hBit);
+	OldBitmap = (HBITMAP)SelectObject(MemDC, hBitmap);
 
-	GetObject(hBit, sizeof(BITMAP), &bit);
+	GetObject(hBitmap, sizeof(BITMAP), &bit);
 	bx = bit.bmWidth;
 	by = bit.bmHeight;
 
 	BitBlt(hdc, x, y, bx, by, MemDC, 0, 0, SRCCOPY);
 	SelectObject(MemDC, OldBitmap);
 	DeleteDC(MemDC);
-}
-
-void CropBitmap(HDC hdc, int x_start, int y_start, int x_end, int y_end, HBITMAP hBit)
-{
-
 }
 
 BOOL CALLBACK DlgProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -527,7 +520,7 @@ BOOL CALLBACK DlgProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			g_hpf[12] = GetDlgItemInt(hDlg, ID_HPF_13, NULL, TRUE);
 			g_hpf[13] = GetDlgItemInt(hDlg, ID_HPF_14, NULL, TRUE);
 			g_hpf[14] = GetDlgItemInt(hDlg, ID_HPF_15, NULL, TRUE);
-			g_hpf_alpha = GetDlgItemInt(hDlg, ID_HPF_ALPHA, NULL, FALSE);
+			g_hpf_coef = GetDlgItemInt(hDlg, ID_HPF_ALPHA, NULL, FALSE);
 			
 			Sharpening(g_argv);
 			
@@ -541,6 +534,13 @@ BOOL CALLBACK DlgProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	return FALSE;
 }
 
+LRESULT CALLBACK WndProc_Crop(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	switch (uMsg)
+	{
+	}
+	return DefWindowProc(hWnd, uMsg, wParam, lParam);
+}
 
 HDC hdc;
 
@@ -597,16 +597,49 @@ LRESULT CALLBACK WndProc_Img(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			g_Width_e = (lParam >> 00) & 0x0000FFFF;
 			g_Height_e = (lParam >> 16) & 0x0000FFFF;
 			std::cout << "x2 = " << g_Width_e << "\ty2 = " << g_Height_e << std::endl;
+
 			hdc = GetDC(hWnd);
 			SelectObject(hdc, GetStockObject(NULL_BRUSH));
 			Rectangle(hdc, g_Width_s, g_Height_s, g_Width_e, g_Height_e);
 			ReleaseDC(hWnd, hdc);
+
+			HWND wnd_crop;
+			WNDCLASS wc_crop;
+			char class_name_crop[] = "JJ_wnd_crop";
+
+			// Init Crop Window 
+			wc_crop.hbrBackground = (HBRUSH)COLOR_BACKGROUND + 3; // +0 = Gray, +1 = Light Gray, +2 = Black, +3 = Dark Gray
+			wc_crop.hCursor = LoadCursor(NULL, IDC_ARROW);
+			wc_crop.hIcon = LoadIcon(g_hInst, MAKEINTRESOURCE(IDI_ICON1));
+			wc_crop.hInstance = g_hInst;
+			wc_crop.lpfnWndProc = WndProc_Crop;
+			wc_crop.lpszClassName = class_name_crop;
+			wc_crop.cbClsExtra = NULL;
+			wc_crop.cbWndExtra = NULL;
+			wc_crop.lpszMenuName = NULL;
+			wc_crop.style = NULL;
+			RegisterClass(&wc_crop);
+
+			if (!g_hCropWnd)
+			{
+				wnd_crop = CreateWindow(class_name_crop, "Crop", WS_OVERLAPPEDWINDOW | WS_POPUP, 1285, 50, g_Width_e - g_Width_s, g_Height_e - g_Height_s, hWnd, NULL, NULL, NULL);
+				ShowWindow(wnd_crop, SW_SHOW);
+				g_hCropWnd = wnd_crop;
+			}
+			else
+			{
+				DestroyWindow(g_hCropWnd);
+				wnd_crop = CreateWindow(class_name_crop, "Crop", WS_OVERLAPPEDWINDOW | WS_POPUP, 1285, 50, g_Width_e - g_Width_s, g_Height_e - g_Height_s, hWnd, NULL, NULL, NULL);
+				ShowWindow(wnd_crop, SW_SHOW);
+				g_hCropWnd = wnd_crop;
+			}
 			return 0;
 		}
 		case WM_DESTROY:
 		{
 			DeleteObject(MyBitmap);
 			DestroyWindow(g_hDlg);
+			DestroyWindow(g_hCropWnd);
 			DeleteDC(hdc);
 			return 0;
 		}
@@ -701,7 +734,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	HWND hWnd;
 	WNDCLASS wc_main;
 	MSG msg;
-	g_hInst = hInstance;
 
 	char class_name_main[] = "JJ_wnd_main";
 
@@ -724,7 +756,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	// Accept Drag & Drop files to window
 	DragAcceptFiles(hWnd, TRUE);
 	ShowWindow(hWnd, nCmdShow);
+
+	g_hInst = hInstance;
 	g_hMainWnd = hWnd;
+
 	UpdateWindow(hWnd);
 
 	while (GetMessage(&msg, NULL, 0, 0))
