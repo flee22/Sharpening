@@ -1,8 +1,8 @@
 #pragma comment(linker, "/entry:WinMainCRTStartup /subsystem:console") // Using this comment can use Command prompt 
 
-#include "Resource.h"
-#include "stdafx.h" // include Windows.h
-#include <shellapi.h> // for Drag and Drop files
+#include "Resource.h"	// for using resource ICON
+#include "stdafx.h"		// include Windows.h
+#include <shellapi.h>	// for Drag and Drop files
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -72,6 +72,7 @@ char g_argv[MAX_PATH];
 char g_argv_bmp[MAX_PATH];
 int g_hpf[15];
 int g_hpf_coef;
+int g_zoomScale = 0;
 
 int IMG_SIZE_Y = iWidth * iHeight;
 int IMG_SIZE_YCrCb = IMG_SIZE_Y + (IMG_SIZE_Y >> 1); // Full Size = Y size + CrCb size
@@ -474,7 +475,16 @@ void DrawBitmap(HDC hdc, int x, int y, HBITMAP hBitmap)
 	bx = bit.bmWidth;
 	by = bit.bmHeight;
 
-	BitBlt(hdc, x, y, bx, by, MemDC, 0, 0, SRCCOPY);
+	SetStretchBltMode(hdc, COLORONCOLOR);
+
+	if (g_zoomScale >= 0) {
+		StretchBlt(hdc, x, y, bx << g_zoomScale, by << g_zoomScale, MemDC, 0, 0, bx, by, SRCCOPY);	
+	}
+	else {
+		StretchBlt(hdc, x, y, bx >> -g_zoomScale, by >> -g_zoomScale, MemDC, 0, 0, bx, by, SRCCOPY);
+	}
+
+//	BitBlt(hdc, x, y, bx, by, MemDC, 0, 0, SRCCOPY);
 	SelectObject(MemDC, OldBitmap);
 	DeleteDC(MemDC);
 }
@@ -564,19 +574,36 @@ LRESULT CALLBACK WndProc_Img(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		}
 		case WM_PAINT:
 		{
-			if (!MyBitmap) 
-			{
-				MyBitmap = (HBITMAP)LoadImage(NULL, g_argv_bmp, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
-			}
-			else
-			{
-				DeleteObject(MyBitmap);
-				MyBitmap = (HBITMAP)LoadImage(NULL, g_argv_bmp, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
-			}
+			if (MyBitmap) DeleteObject(MyBitmap);
+
+			MyBitmap = (HBITMAP)LoadImage(NULL, g_argv_bmp, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
+
 			hdc = BeginPaint(hWnd, &ps);
 			DrawBitmap(hdc, 0, 0, MyBitmap);
 			EndPaint(hWnd, &ps);
 
+			return 0;
+		}
+		case WM_MOUSEWHEEL:
+		{
+			if((SHORT)HIWORD(wParam) > 0) // Zoom In
+			{ 
+				if (g_zoomScale > 4) g_zoomScale = 5;
+				else g_zoomScale++;
+
+				cout << "zoomScale = " << g_zoomScale << endl;
+
+				InvalidateRect(hWnd, NULL, TRUE); // Clear img
+			}
+			else // Zoom Out
+			{ 
+				if (g_zoomScale < -4) g_zoomScale = -5;
+				else g_zoomScale--;
+
+				cout << "zoomScale = " << g_zoomScale << endl;
+
+				InvalidateRect(hWnd, NULL, TRUE); // Clear img
+			}
 			return 0;
 		}
 		case WM_LBUTTONDOWN:
@@ -584,8 +611,15 @@ LRESULT CALLBACK WndProc_Img(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			InvalidateRect(hWnd, NULL, TRUE); // Clear img
 
 			g_is_clicked = 1;
-			g_Width_s = (lParam >> 00) & 0x0000FFFF;
-			g_Height_s = (lParam >> 16) & 0x0000FFFF;
+
+			if (g_zoomScale >= 0) {
+				g_Width_s  = ((lParam >> 00) & 0x0000FFFF) >> g_zoomScale;
+				g_Height_s = ((lParam >> 16) & 0x0000FFFF) >> g_zoomScale;
+			}
+			else {
+				g_Width_s  = ((lParam >> 00) & 0x0000FFFF) << -g_zoomScale;
+				g_Height_s = ((lParam >> 16) & 0x0000FFFF) << -g_zoomScale;
+			}
 
 			std::cout << "x1 = " << g_Width_s << "\ty1 = " << g_Height_s << std::endl;
 
@@ -594,13 +628,36 @@ LRESULT CALLBACK WndProc_Img(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		case WM_LBUTTONUP:
 		{
 			g_is_clicked = 0;
-			g_Width_e = (lParam >> 00) & 0x0000FFFF;
-			g_Height_e = (lParam >> 16) & 0x0000FFFF;
+
+			if (g_zoomScale >= 0) {
+				g_Width_e  = ((lParam >> 00) & 0x0000FFFF) >> g_zoomScale;
+				g_Height_e = ((lParam >> 16) & 0x0000FFFF) >> g_zoomScale;
+			}
+			else {
+				g_Width_e  = ((lParam >> 00) & 0x0000FFFF) << -g_zoomScale;
+				g_Height_e = ((lParam >> 16) & 0x0000FFFF) << -g_zoomScale;
+			}
+
 			std::cout << "x2 = " << g_Width_e << "\ty2 = " << g_Height_e << std::endl;
 
 			hdc = GetDC(hWnd);
 			SelectObject(hdc, GetStockObject(NULL_BRUSH));
-			Rectangle(hdc, g_Width_s, g_Height_s, g_Width_e, g_Height_e);
+
+			if (g_zoomScale >= 0) {
+				Rectangle(hdc, 
+					g_Width_s  << g_zoomScale, 
+					g_Height_s << g_zoomScale, 
+					g_Width_e  << g_zoomScale, 
+					g_Height_e << g_zoomScale);
+			}
+			else {
+				Rectangle(hdc, 
+					g_Width_s  >> -g_zoomScale, 
+					g_Height_s >> -g_zoomScale, 
+					g_Width_e  >> -g_zoomScale, 
+					g_Height_e >> -g_zoomScale);
+			}
+
 			ReleaseDC(hWnd, hdc);
 
 			HWND wnd_crop;
@@ -620,19 +677,12 @@ LRESULT CALLBACK WndProc_Img(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			wc_crop.style = NULL;
 			RegisterClass(&wc_crop);
 
-			if (!g_hCropWnd)
-			{
-				wnd_crop = CreateWindow(class_name_crop, "Crop", WS_OVERLAPPEDWINDOW | WS_POPUP, 1285, 50, g_Width_e - g_Width_s, g_Height_e - g_Height_s, hWnd, NULL, NULL, NULL);
-				ShowWindow(wnd_crop, SW_SHOW);
-				g_hCropWnd = wnd_crop;
-			}
-			else
-			{
-				DestroyWindow(g_hCropWnd);
-				wnd_crop = CreateWindow(class_name_crop, "Crop", WS_OVERLAPPEDWINDOW | WS_POPUP, 1285, 50, g_Width_e - g_Width_s, g_Height_e - g_Height_s, hWnd, NULL, NULL, NULL);
-				ShowWindow(wnd_crop, SW_SHOW);
-				g_hCropWnd = wnd_crop;
-			}
+			if (g_hCropWnd) DestroyWindow(g_hCropWnd);
+
+			wnd_crop = CreateWindow(class_name_crop, "Crop", WS_POPUP | WS_BORDER, 1285, 50, g_Width_e - g_Width_s, g_Height_e - g_Height_s, hWnd, NULL, NULL, NULL);
+			ShowWindow(wnd_crop, SW_SHOW);
+			g_hCropWnd = wnd_crop;
+
 			return 0;
 		}
 		case WM_DESTROY:
