@@ -23,6 +23,7 @@
     <ProjectGuid>{F3F574CC-FCEA-446B-B1FC-E2CC1EAA267D}</ProjectGuid>
     <RootNamespace>My180410SharpeningWin</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
+    <ProjectName>Sharpening</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -124,14 +125,13 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="180410_Sharpening_Win.rc" />
+    <ResourceCompile Include="Sharpening.rc" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="jju.ico" />
-    <Image Include="toolbar1.bmp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="WinMain.cpp" />
+    <ClCompile Include="Sharpening.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

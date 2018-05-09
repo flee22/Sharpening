@@ -26,20 +26,17 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="180410_Sharpening_Win.rc">
+    <Image Include="jju.ico">
+      <Filter>리소스 파일</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Sharpening.rc">
       <Filter>리소스 파일</Filter>
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <Image Include="jju.ico">
-      <Filter>리소스 파일</Filter>
-    </Image>
-    <Image Include="toolbar1.bmp">
-      <Filter>리소스 파일</Filter>
-    </Image>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="WinMain.cpp">
+    <ClCompile Include="Sharpening.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>
