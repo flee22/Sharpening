@@ -9,10 +9,17 @@
 #include <algorithm>
 #include <iomanip>
 
+#include <crtdbg.h>		// for Debug Memory Leak
+
 using namespace std;
 
 #define iWidth 4608
 #define iHeight 3456
+
+// for Debug Memory Leak
+#ifndef _DEBUG
+#define new new(_CLIENT_BLOCK,__FILE__,__LINE__)
+#endif
 
 #pragma pack(push, 2)	// Avoid Memory Padding
 struct BmpFileHeader {
@@ -71,16 +78,13 @@ int g_Width_s, g_Width_e, g_Height_s, g_Height_e;
 int g_argc;
 char g_argv[MAX_PATH];
 char g_argv_bmp[MAX_PATH];
-char g_argv_dbg_bmp[MAX_PATH];
+char g_argv_dbg[MAX_PATH];
 int g_hpf[15];
 int g_hpf_coef;
 int g_zoomScale = -2;
 
 int IMG_SIZE_Y = iWidth * iHeight;
 int IMG_SIZE_YCrCb = IMG_SIZE_Y + (IMG_SIZE_Y >> 1); // Full Size = Y size + CrCb size
-
-int CROP_H = g_Height_e - g_Height_s;
-int CROP_W = g_Width_e - g_Width_s;
 
 
 void Yvu2rgb(int * yvu_array, int width, int height, unsigned char * rgb_array)
@@ -412,7 +416,7 @@ void Sharpening(char * argv)
 		// Set Y to Sharpened pixels for debug
 		for (i = 0; i < IMG_SIZE_Y; i++)
 		{
-			image_temp_int_dbg[i] = max(min(Pixel_Y[i], 255), 0);
+			image_temp_int_dbg[i] = max(min(Pixel_Y[i] + 128, 255), 0);
 		}
 		// Set CrCb to 128(none color) for debug
 		for (i = IMG_SIZE_Y; i < IMG_SIZE_YCrCb; i++)
@@ -498,7 +502,6 @@ void DrawBitmap(HDC hdc, int x, int y, HBITMAP hBitmap)
 
 void DrawCropBitmap(HDC hdc, int cx, int cy, int cWidth, int cHeight, HBITMAP hBitmap)
 {
-//	int bx, by;
 	HDC mDC;
 	BITMAP bit;
 	HBITMAP OldBitmap;
@@ -507,8 +510,6 @@ void DrawCropBitmap(HDC hdc, int cx, int cy, int cWidth, int cHeight, HBITMAP hB
 	OldBitmap = (HBITMAP)SelectObject(mDC, hBitmap);
 
 	GetObject(hBitmap, sizeof(BITMAP), &bit);
-//	bx = bit.bmWidth;
-//	by = bit.bmHeight;
 
 	SetStretchBltMode(hdc, COLORONCOLOR);
 	StretchBlt(hdc, 0, 0, cWidth << 1 , cHeight << 1, mDC, cx, cy, cWidth, cHeight, SRCCOPY);
@@ -517,55 +518,83 @@ void DrawCropBitmap(HDC hdc, int cx, int cy, int cWidth, int cHeight, HBITMAP hB
 	DeleteDC(mDC);
 }
 
-BOOL CALLBACK DlgProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+
+BOOL CALLBACK WndProc_Dlg(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	switch (uMsg)
 	{
-	case WM_INITDIALOG:
-		SetDlgItemText(hDlg, ID_HPF_01, "0");
-		SetDlgItemText(hDlg, ID_HPF_02, "0");
-		SetDlgItemText(hDlg, ID_HPF_03, "0");
-		SetDlgItemText(hDlg, ID_HPF_04, "0");
-		SetDlgItemText(hDlg, ID_HPF_05, "0");
-		SetDlgItemText(hDlg, ID_HPF_06, "0");
-		SetDlgItemText(hDlg, ID_HPF_07, "0");
-		SetDlgItemText(hDlg, ID_HPF_08, "0");
-		SetDlgItemText(hDlg, ID_HPF_09, "0");
-		SetDlgItemText(hDlg, ID_HPF_10, "0");
-		SetDlgItemText(hDlg, ID_HPF_11, "0");
-		SetDlgItemText(hDlg, ID_HPF_12, "0");
-		SetDlgItemText(hDlg, ID_HPF_13, "-511");
-		SetDlgItemText(hDlg, ID_HPF_14, "0");
-		SetDlgItemText(hDlg, ID_HPF_15, "2044");
-		SetDlgItemText(hDlg, ID_HPF_ALPHA, "2");
-		return TRUE;
-	case WM_COMMAND:
-		switch (wParam)
+		case WM_INITDIALOG: 
 		{
-		case ID_UPDATE:
-			g_hpf[0] = GetDlgItemInt(hDlg, ID_HPF_01, NULL, TRUE);
-			g_hpf[1] = GetDlgItemInt(hDlg, ID_HPF_02, NULL, TRUE);
-			g_hpf[2] = GetDlgItemInt(hDlg, ID_HPF_03, NULL, TRUE);
-			g_hpf[3] = GetDlgItemInt(hDlg, ID_HPF_04, NULL, TRUE);
-			g_hpf[4] = GetDlgItemInt(hDlg, ID_HPF_05, NULL, TRUE);
-			g_hpf[5] = GetDlgItemInt(hDlg, ID_HPF_06, NULL, TRUE);
-			g_hpf[6] = GetDlgItemInt(hDlg, ID_HPF_07, NULL, TRUE);
-			g_hpf[7] = GetDlgItemInt(hDlg, ID_HPF_08, NULL, TRUE);
-			g_hpf[8] = GetDlgItemInt(hDlg, ID_HPF_09, NULL, TRUE);
-			g_hpf[9] = GetDlgItemInt(hDlg, ID_HPF_10, NULL, TRUE);
-			g_hpf[10] = GetDlgItemInt(hDlg, ID_HPF_11, NULL, TRUE);
-			g_hpf[11] = GetDlgItemInt(hDlg, ID_HPF_12, NULL, TRUE);
-			g_hpf[12] = GetDlgItemInt(hDlg, ID_HPF_13, NULL, TRUE);
-			g_hpf[13] = GetDlgItemInt(hDlg, ID_HPF_14, NULL, TRUE);
-			g_hpf[14] = GetDlgItemInt(hDlg, ID_HPF_15, NULL, TRUE);
-			g_hpf_coef = GetDlgItemInt(hDlg, ID_HPF_ALPHA, NULL, FALSE);
-			
-			Sharpening(g_argv);
-			InvalidateRect(g_hImgWnd, NULL, TRUE);
-			InvalidateRect(g_hCropWnd, NULL, TRUE);
+			SetDlgItemText(hDlg, ID_HPF_01, "0");
+			SetDlgItemText(hDlg, ID_HPF_02, "0");
+			SetDlgItemText(hDlg, ID_HPF_03, "0");
+			SetDlgItemText(hDlg, ID_HPF_04, "0");
+			SetDlgItemText(hDlg, ID_HPF_05, "0");
+			SetDlgItemText(hDlg, ID_HPF_06, "0");
+			SetDlgItemText(hDlg, ID_HPF_07, "0");
+			SetDlgItemText(hDlg, ID_HPF_08, "0");
+			SetDlgItemText(hDlg, ID_HPF_09, "0");
+			SetDlgItemText(hDlg, ID_HPF_10, "0");
+			SetDlgItemText(hDlg, ID_HPF_11, "0");
+			SetDlgItemText(hDlg, ID_HPF_12, "0");
+			SetDlgItemText(hDlg, ID_HPF_13, "-511");
+			SetDlgItemText(hDlg, ID_HPF_14, "0");
+			SetDlgItemText(hDlg, ID_HPF_15, "2044");
+			SetDlgItemText(hDlg, ID_HPF_ALPHA, "2");
+			g_hpf[0] = 0;
+			g_hpf[1] = 0;
+			g_hpf[2] = 0;
+			g_hpf[3] = 0;
+			g_hpf[4] = 0;
+			g_hpf[5] = 0;
+			g_hpf[6] = 0;
+			g_hpf[7] = 0;
+			g_hpf[8] = 0;
+			g_hpf[9] = 0;
+			g_hpf[10] = 0;
+			g_hpf[11] = 0;
+			g_hpf[12] = -511;
+			g_hpf[13] = 0;
+			g_hpf[14] = 2044;
+			g_hpf_coef = 2;
 			return TRUE;
-		case ID_COPY:
-			return TRUE;
+		}
+		case WM_COMMAND:
+		{
+			switch (wParam)
+			{
+				case ID_UPDATE:
+				{
+					g_hpf[0] = GetDlgItemInt(hDlg, ID_HPF_01, NULL, TRUE);
+					g_hpf[1] = GetDlgItemInt(hDlg, ID_HPF_02, NULL, TRUE);
+					g_hpf[2] = GetDlgItemInt(hDlg, ID_HPF_03, NULL, TRUE);
+					g_hpf[3] = GetDlgItemInt(hDlg, ID_HPF_04, NULL, TRUE);
+					g_hpf[4] = GetDlgItemInt(hDlg, ID_HPF_05, NULL, TRUE);
+					g_hpf[5] = GetDlgItemInt(hDlg, ID_HPF_06, NULL, TRUE);
+					g_hpf[6] = GetDlgItemInt(hDlg, ID_HPF_07, NULL, TRUE);
+					g_hpf[7] = GetDlgItemInt(hDlg, ID_HPF_08, NULL, TRUE);
+					g_hpf[8] = GetDlgItemInt(hDlg, ID_HPF_09, NULL, TRUE);
+					g_hpf[9] = GetDlgItemInt(hDlg, ID_HPF_10, NULL, TRUE);
+					g_hpf[10] = GetDlgItemInt(hDlg, ID_HPF_11, NULL, TRUE);
+					g_hpf[11] = GetDlgItemInt(hDlg, ID_HPF_12, NULL, TRUE);
+					g_hpf[12] = GetDlgItemInt(hDlg, ID_HPF_13, NULL, TRUE);
+					g_hpf[13] = GetDlgItemInt(hDlg, ID_HPF_14, NULL, TRUE);
+					g_hpf[14] = GetDlgItemInt(hDlg, ID_HPF_15, NULL, TRUE);
+					g_hpf_coef = GetDlgItemInt(hDlg, ID_HPF_ALPHA, NULL, FALSE);
+
+					if (g_hImgWnd)
+					{
+						Sharpening(g_argv);
+						InvalidateRect(g_hImgWnd, NULL, TRUE);
+						InvalidateRect(g_hCropWnd, NULL, TRUE);
+					}
+					return TRUE;
+				}
+				case ID_COPY:
+				{
+					return TRUE;
+				}
+			}
 		}
 		break;
 	}
@@ -586,10 +615,15 @@ LRESULT CALLBACK WndProc_Crop(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 		{
 			if (CropBitmap) DeleteObject(CropBitmap);
 
-			CropBitmap = (HBITMAP)LoadImage(NULL, g_argv_dbg_bmp, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
+			CropBitmap = (HBITMAP)LoadImage(NULL, g_argv_dbg, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
 
 			hdc = BeginPaint(hWnd, &ps);
-			DrawCropBitmap(hdc, g_Width_s, g_Height_s, g_Width_e - g_Width_s, g_Height_e - g_Height_s, CropBitmap);
+			if (g_Width_s > g_Width_e) {
+				DrawCropBitmap(hdc, g_Width_e, g_Height_e, g_Width_s - g_Width_e, g_Height_s - g_Height_e, CropBitmap);
+			}
+			else {
+				DrawCropBitmap(hdc, g_Width_s, g_Height_s, g_Width_e - g_Width_s, g_Height_e - g_Height_s, CropBitmap);
+			}
 			EndPaint(hWnd, &ps);
 
 			return 0;
@@ -603,7 +637,6 @@ LRESULT CALLBACK WndProc_Crop(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 		return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
 
-
 LRESULT CALLBACK WndProc_Img(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	PAINTSTRUCT ps;
@@ -613,7 +646,7 @@ LRESULT CALLBACK WndProc_Img(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		case WM_CREATE:
 		{
 			strcat_s(g_argv_bmp, "_Sharpened.bmp");
-			strcat_s(g_argv_dbg_bmp, "_Sharpened_dbg.bmp");
+			strcat_s(g_argv_dbg, "_Sharpened_dbg.bmp");
 
 			return 0;
 		}
@@ -674,7 +707,7 @@ LRESULT CALLBACK WndProc_Img(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				g_Height_s = ((lParam >> 16) & 0x0000FFFF) << -g_zoomScale;
 			}
 
-			std::cout << "x1 = " << g_Width_s << "\ty1 = " << g_Height_s << std::endl;
+//			std::cout << "x1 = " << g_Width_s << "\ty1 = " << g_Height_s << std::endl;
 
 			return 0;
 		}
@@ -691,7 +724,7 @@ LRESULT CALLBACK WndProc_Img(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				g_Height_e = ((lParam >> 16) & 0x0000FFFF) << -g_zoomScale;
 			}
 
-			std::cout << "x2 = " << g_Width_e << "\ty2 = " << g_Height_e << std::endl;
+//			std::cout << "x2 = " << g_Width_e << "\ty2 = " << g_Height_e << std::endl;
 
 			hdc = GetDC(hWnd);
 			SelectObject(hdc, GetStockObject(NULL_BRUSH));
@@ -732,8 +765,14 @@ LRESULT CALLBACK WndProc_Img(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			wc_crop.style = NULL;
 			RegisterClass(&wc_crop);
 
-			wnd_crop = CreateWindow(class_name_crop, "Crop", WS_POPUP | WS_OVERLAPPEDWINDOW,
-				1200, 80, (g_Width_e - g_Width_s) << 1, (g_Height_e - g_Height_s) << 1, hWnd, NULL, NULL, NULL);
+			if (g_Width_s > g_Width_e) {
+				wnd_crop = CreateWindow(class_name_crop, "Crop", WS_POPUP | WS_OVERLAPPEDWINDOW | WS_TABSTOP,
+					1200, 80, (g_Width_s - g_Width_e) << 1, (g_Height_s - g_Height_e) << 1, hWnd, NULL, NULL, NULL);
+			}
+			else {
+				wnd_crop = CreateWindow(class_name_crop, "Crop", WS_POPUP | WS_OVERLAPPEDWINDOW | WS_TABSTOP,
+					1200, 80, (g_Width_e - g_Width_s) << 1, (g_Height_e - g_Height_s) << 1, hWnd, NULL, NULL, NULL);
+			}
 
 			ShowWindow(wnd_crop, SW_SHOW);
 			g_hCropWnd = wnd_crop;
@@ -761,8 +800,10 @@ LRESULT CALLBACK WndProc_Main(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 		{
 			if (!IsWindow(g_hDlgWnd))
 			{
-				g_hDlgWnd = CreateDialog(g_hInst, MAKEINTRESOURCE(IDD_DIALOG1), hWnd, DlgProc);
-				ShowWindow(g_hDlgWnd, SW_SHOW);
+				HWND wnd_dlg;
+				wnd_dlg = CreateDialog(g_hInst, MAKEINTRESOURCE(IDD_DIALOG1), hWnd, WndProc_Dlg);
+				ShowWindow(wnd_dlg , SW_SHOW);
+				g_hDlgWnd = wnd_dlg;
 			}
 
 			return 0;
@@ -799,14 +840,10 @@ LRESULT CALLBACK WndProc_Main(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 				total_path += "\n";
 			}
 
-			//			MessageBox(hWnd, total_path.c_str(), "Drop Info", MB_ICONINFORMATION);
-
 			Sharpening(g_argv);
 
 			strcpy_s(g_argv_bmp, g_argv);
-			strcpy_s(g_argv_dbg_bmp, g_argv);
-
-			//			MessageBox(hWnd, "Sharpening 완료", "알림", MB_OK);
+			strcpy_s(g_argv_dbg, g_argv);
 
 			HWND wnd_img;
 			WNDCLASS wc_img;
@@ -826,11 +863,11 @@ LRESULT CALLBACK WndProc_Main(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 			RegisterClass(&wc_img);
 
 			if (g_zoomScale >= 0) {
-				wnd_img = CreateWindowEx(0, class_name_img, "Img", WS_OVERLAPPEDWINDOW | WS_CHILD,
+				wnd_img = CreateWindowEx(0, class_name_img, "Img", WS_OVERLAPPEDWINDOW | WS_CHILD | WS_TABSTOP,
 					10, 10, iWidth << g_zoomScale, iHeight << g_zoomScale, hWnd, NULL, NULL, NULL);
 			}
 			else {
-				wnd_img = CreateWindowEx(0, class_name_img, "Img", WS_OVERLAPPEDWINDOW | WS_CHILD,
+				wnd_img = CreateWindowEx(0, class_name_img, "Img", WS_OVERLAPPEDWINDOW | WS_CHILD | WS_TABSTOP,
 					10, 10, iWidth >> -g_zoomScale, iHeight >> -g_zoomScale, hWnd, NULL, NULL, NULL);
 			}
 
@@ -845,9 +882,10 @@ LRESULT CALLBACK WndProc_Main(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 }
 
 
-
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+
 	HWND hWnd;
 	WNDCLASS wc_main;
 	MSG msg;
@@ -881,8 +919,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	while (GetMessage(&msg, NULL, 0, 0))
 	{
-		TranslateMessage(&msg);
-		DispatchMessage(&msg);
+		if (!IsDialogMessage(g_hDlgWnd, &msg))
+		{
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
 	}
 
 	return msg.wParam;
