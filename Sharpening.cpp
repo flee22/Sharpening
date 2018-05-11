@@ -8,7 +8,6 @@
 #include <sstream>
 #include <algorithm>
 #include <iomanip>
-
 #include <crtdbg.h>		// for Debug Memory Leak
 
 using namespace std;
@@ -73,15 +72,17 @@ HWND g_hDlgWnd, g_hMainWnd, g_hImgWnd, g_hCropWnd;
 HBITMAP MyBitmap, CropBitmap;
 HDC hdc;
 
-int g_is_clicked = 0;
-int g_Width_s, g_Width_e, g_Height_s, g_Height_e;
+int g_is_clicked_LBUTTON, g_is_clicked_RBUTTON;
+int g_RectW_s, g_RectW_e, g_RectH_s, g_RectH_e;
+int g_cur_x, g_cur_y;
 int g_argc;
 char g_argv[MAX_PATH];
 char g_argv_bmp[MAX_PATH];
 char g_argv_dbg[MAX_PATH];
 int g_hpf[15];
 int g_hpf_coef;
-int g_zoomScale = -2;
+int g_img_zoomScale = -2;
+int g_crop_zoomScale = 2;
 
 int IMG_SIZE_Y = iWidth * iHeight;
 int IMG_SIZE_YCrCb = IMG_SIZE_Y + (IMG_SIZE_Y >> 1); // Full Size = Y size + CrCb size
@@ -473,7 +474,7 @@ void Sharpening(char * argv)
 	}
 }
 
-void DrawBitmap(HDC hdc, int x, int y, HBITMAP hBitmap)
+void DrawBitmap(HDC hdc, int x, int y, int Width, int Height, HBITMAP hBitmap)
 {
 	int bx, by;
 	HDC MemDC;
@@ -489,18 +490,18 @@ void DrawBitmap(HDC hdc, int x, int y, HBITMAP hBitmap)
 
 	SetStretchBltMode(hdc, COLORONCOLOR);
 
-	if (g_zoomScale >= 0) {
-		StretchBlt(hdc, x, y, bx << g_zoomScale, by << g_zoomScale, MemDC, 0, 0, bx, by, SRCCOPY);	
+	if (g_img_zoomScale >= 0) {
+		StretchBlt(hdc, 0, 0, bx << g_img_zoomScale, by << g_img_zoomScale, MemDC, x, y, Width, Height, SRCCOPY);	
 	}
 	else {
-		StretchBlt(hdc, x, y, bx >> -g_zoomScale, by >> -g_zoomScale, MemDC, 0, 0, bx, by, SRCCOPY);
+		StretchBlt(hdc, 0, 0, bx >> -g_img_zoomScale, by >> -g_img_zoomScale, MemDC, x, y, Width, Height, SRCCOPY);
 	}
 
 	SelectObject(MemDC, OldBitmap);
 	DeleteDC(MemDC);
 }
 
-void DrawCropBitmap(HDC hdc, int cx, int cy, int cWidth, int cHeight, HBITMAP hBitmap)
+void DrawCropBitmap(HDC hdc, int x, int y, int Width, int Height, HBITMAP hBitmap)
 {
 	HDC mDC;
 	BITMAP bit;
@@ -512,7 +513,7 @@ void DrawCropBitmap(HDC hdc, int cx, int cy, int cWidth, int cHeight, HBITMAP hB
 	GetObject(hBitmap, sizeof(BITMAP), &bit);
 
 	SetStretchBltMode(hdc, COLORONCOLOR);
-	StretchBlt(hdc, 0, 0, cWidth << 1 , cHeight << 1, mDC, cx, cy, cWidth, cHeight, SRCCOPY);
+	StretchBlt(hdc, 0, 0, Width << g_crop_zoomScale, Height << g_crop_zoomScale, mDC, x, y, Width, Height, SRCCOPY);
 
 	SelectObject(mDC, OldBitmap);
 	DeleteDC(mDC);
@@ -541,21 +542,21 @@ BOOL CALLBACK WndProc_Dlg(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			SetDlgItemText(hDlg, ID_HPF_14, "0");
 			SetDlgItemText(hDlg, ID_HPF_15, "2044");
 			SetDlgItemText(hDlg, ID_HPF_ALPHA, "2");
-			g_hpf[0] = 0;
-			g_hpf[1] = 0;
-			g_hpf[2] = 0;
-			g_hpf[3] = 0;
-			g_hpf[4] = 0;
-			g_hpf[5] = 0;
-			g_hpf[6] = 0;
-			g_hpf[7] = 0;
-			g_hpf[8] = 0;
-			g_hpf[9] = 0;
-			g_hpf[10] = 0;
-			g_hpf[11] = 0;
-			g_hpf[12] = -511;
-			g_hpf[13] = 0;
-			g_hpf[14] = 2044;
+			  g_hpf[0] = 0;
+			  g_hpf[1] = 0;
+			  g_hpf[2] = 0;
+			  g_hpf[3] = 0;
+			  g_hpf[4] = 0;
+			  g_hpf[5] = 0;
+			  g_hpf[6] = 0;
+			  g_hpf[7] = 0;
+			  g_hpf[8] = 0;
+			  g_hpf[9] = 0;
+			 g_hpf[10] = 0;
+			 g_hpf[11] = 0;
+			 g_hpf[12] = -511;
+			 g_hpf[13] = 0;
+			 g_hpf[14] = 2044;
 			g_hpf_coef = 2;
 			return TRUE;
 		}
@@ -565,21 +566,21 @@ BOOL CALLBACK WndProc_Dlg(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			{
 				case ID_UPDATE:
 				{
-					g_hpf[0] = GetDlgItemInt(hDlg, ID_HPF_01, NULL, TRUE);
-					g_hpf[1] = GetDlgItemInt(hDlg, ID_HPF_02, NULL, TRUE);
-					g_hpf[2] = GetDlgItemInt(hDlg, ID_HPF_03, NULL, TRUE);
-					g_hpf[3] = GetDlgItemInt(hDlg, ID_HPF_04, NULL, TRUE);
-					g_hpf[4] = GetDlgItemInt(hDlg, ID_HPF_05, NULL, TRUE);
-					g_hpf[5] = GetDlgItemInt(hDlg, ID_HPF_06, NULL, TRUE);
-					g_hpf[6] = GetDlgItemInt(hDlg, ID_HPF_07, NULL, TRUE);
-					g_hpf[7] = GetDlgItemInt(hDlg, ID_HPF_08, NULL, TRUE);
-					g_hpf[8] = GetDlgItemInt(hDlg, ID_HPF_09, NULL, TRUE);
-					g_hpf[9] = GetDlgItemInt(hDlg, ID_HPF_10, NULL, TRUE);
-					g_hpf[10] = GetDlgItemInt(hDlg, ID_HPF_11, NULL, TRUE);
-					g_hpf[11] = GetDlgItemInt(hDlg, ID_HPF_12, NULL, TRUE);
-					g_hpf[12] = GetDlgItemInt(hDlg, ID_HPF_13, NULL, TRUE);
-					g_hpf[13] = GetDlgItemInt(hDlg, ID_HPF_14, NULL, TRUE);
-					g_hpf[14] = GetDlgItemInt(hDlg, ID_HPF_15, NULL, TRUE);
+					  g_hpf[0] = GetDlgItemInt(hDlg, ID_HPF_01, NULL, TRUE);
+					  g_hpf[1] = GetDlgItemInt(hDlg, ID_HPF_02, NULL, TRUE);
+					  g_hpf[2] = GetDlgItemInt(hDlg, ID_HPF_03, NULL, TRUE);
+					  g_hpf[3] = GetDlgItemInt(hDlg, ID_HPF_04, NULL, TRUE);
+					  g_hpf[4] = GetDlgItemInt(hDlg, ID_HPF_05, NULL, TRUE);
+					  g_hpf[5] = GetDlgItemInt(hDlg, ID_HPF_06, NULL, TRUE);
+					  g_hpf[6] = GetDlgItemInt(hDlg, ID_HPF_07, NULL, TRUE);
+					  g_hpf[7] = GetDlgItemInt(hDlg, ID_HPF_08, NULL, TRUE);
+					  g_hpf[8] = GetDlgItemInt(hDlg, ID_HPF_09, NULL, TRUE);
+					  g_hpf[9] = GetDlgItemInt(hDlg, ID_HPF_10, NULL, TRUE);
+					 g_hpf[10] = GetDlgItemInt(hDlg, ID_HPF_11, NULL, TRUE);
+					 g_hpf[11] = GetDlgItemInt(hDlg, ID_HPF_12, NULL, TRUE);
+					 g_hpf[12] = GetDlgItemInt(hDlg, ID_HPF_13, NULL, TRUE);
+					 g_hpf[13] = GetDlgItemInt(hDlg, ID_HPF_14, NULL, TRUE);
+					 g_hpf[14] = GetDlgItemInt(hDlg, ID_HPF_15, NULL, TRUE);
 					g_hpf_coef = GetDlgItemInt(hDlg, ID_HPF_ALPHA, NULL, FALSE);
 
 					if (g_hImgWnd)
@@ -618,13 +619,34 @@ LRESULT CALLBACK WndProc_Crop(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 			CropBitmap = (HBITMAP)LoadImage(NULL, g_argv_dbg, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
 
 			hdc = BeginPaint(hWnd, &ps);
-			if (g_Width_s > g_Width_e) {
-				DrawCropBitmap(hdc, g_Width_e, g_Height_e, g_Width_s - g_Width_e, g_Height_s - g_Height_e, CropBitmap);
+			if (g_RectW_s > g_RectW_e) {
+				DrawCropBitmap(hdc, g_RectW_e, g_RectH_e, (g_RectW_s - g_RectW_e), (g_RectH_s - g_RectH_e), CropBitmap);
 			}
 			else {
-				DrawCropBitmap(hdc, g_Width_s, g_Height_s, g_Width_e - g_Width_s, g_Height_e - g_Height_s, CropBitmap);
+				DrawCropBitmap(hdc, g_RectW_s, g_RectH_s, (g_RectW_e - g_RectW_s), (g_RectH_e - g_RectH_s), CropBitmap);
 			}
 			EndPaint(hWnd, &ps);
+
+			return 0;
+		}
+		case WM_MOUSEWHEEL:
+		{
+			if ((SHORT)HIWORD(wParam) > 0) 
+			{
+				// Zoom In
+				if (g_crop_zoomScale > 2) g_crop_zoomScale = 3;
+				else g_crop_zoomScale++;
+			}
+			else 
+			{
+				// Zoom Out
+				if (g_crop_zoomScale < 1) g_crop_zoomScale = 0;
+				else g_crop_zoomScale--;
+			}
+
+			SetWindowPos(hWnd, NULL, 0, 0, (g_RectW_e - g_RectW_s) << g_crop_zoomScale, (g_RectH_e - g_RectH_s) << g_crop_zoomScale, SWP_NOMOVE);
+
+			InvalidateRect(hWnd, NULL, FALSE); // Clear img
 
 			return 0;
 		}
@@ -657,91 +679,107 @@ LRESULT CALLBACK WndProc_Img(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			MyBitmap = (HBITMAP)LoadImage(NULL, g_argv_bmp, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
 
 			hdc = BeginPaint(hWnd, &ps);
-			DrawBitmap(hdc, 0, 0, MyBitmap);
+			DrawBitmap(hdc, 0, 0, iWidth, iHeight, MyBitmap);
 			EndPaint(hWnd, &ps);
 
 			return 0;
 		}
 		case WM_MOUSEWHEEL:
 		{
-			if((SHORT)HIWORD(wParam) > 0) // Zoom In
+			if((SHORT)HIWORD(wParam) > 0) 
 			{ 
-				if (g_zoomScale > 2) {
-					g_zoomScale = 3;
-				}
-				else g_zoomScale++;
+				// Zoom In
+				if (g_img_zoomScale > 2) g_img_zoomScale = 3;
+				else g_img_zoomScale++;
 			}
-			else // Zoom Out
+			else 
 			{ 
-				if (g_zoomScale < -3) {
-					g_zoomScale = -4;
+				// Zoom Out
+				if (g_img_zoomScale < -3) g_img_zoomScale = -4;
+				else g_img_zoomScale--;
+			}
+
+			if (g_img_zoomScale < 0) 
+				SetWindowPos(hWnd, NULL, 0, 0, iWidth >> -g_img_zoomScale, iHeight >> -g_img_zoomScale, SWP_NOMOVE);
+			else
+				SetWindowPos(hWnd, NULL, 0, 0, iWidth << g_img_zoomScale, iHeight << g_img_zoomScale, SWP_NOMOVE);
+
+			InvalidateRect(hWnd, NULL, FALSE);
+
+			return 0;
+		}
+		case WM_MOUSEMOVE:
+		{
+			if (g_is_clicked_RBUTTON) 
+			{
+				// Get current Mouse xy point at Client area
+				if (g_img_zoomScale >= 0) {
+					g_cur_x = ((lParam >> 00) & 0x0000FFFF) >> g_img_zoomScale;
+					g_cur_y = ((lParam >> 16) & 0x0000FFFF) >> g_img_zoomScale;
 				}
-				else g_zoomScale--;
-			}
+				else {
+					g_cur_x = ((lParam >> 00) & 0x0000FFFF) << -g_img_zoomScale;
+					g_cur_y = ((lParam >> 16) & 0x0000FFFF) << -g_img_zoomScale;
+				}
 
-			if (g_zoomScale < 0) {
-				SetWindowPos(hWnd, NULL, 0, 0, iWidth >> -g_zoomScale, iHeight >> -g_zoomScale, SWP_NOMOVE);
-//				cout << "zoomScale = " << g_zoomScale << "\tiWidth = " << (iWidth >> -g_zoomScale) << "\tiHeight = " << (iHeight >> -g_zoomScale) << endl;
+				// Refresh if image zoommed
+				if (g_img_zoomScale > -1)
+				{
+					InvalidateRect(hWnd, NULL, FALSE);
+				}
 			}
-			else {
-				SetWindowPos(hWnd, NULL, 0, 0, iWidth << g_zoomScale, iHeight << g_zoomScale, SWP_NOMOVE);
-//				cout << "zoomScale = " << g_zoomScale << "\tiWidth = " << (iWidth << g_zoomScale) << "\tiHeight = " << (iHeight << g_zoomScale) << endl;
-			}
-
-			InvalidateRect(hWnd, NULL, TRUE); // Clear img
-
 			return 0;
 		}
 		case WM_LBUTTONDOWN:
 		{
-			InvalidateRect(hWnd, NULL, TRUE); // Clear img
+			InvalidateRect(hWnd, NULL, FALSE); // Clear img
 
-			g_is_clicked = 1;
+			g_is_clicked_LBUTTON = 1;
 
-			if (g_zoomScale >= 0) {
-				g_Width_s  = ((lParam >> 00) & 0x0000FFFF) >> g_zoomScale;
-				g_Height_s = ((lParam >> 16) & 0x0000FFFF) >> g_zoomScale;
+			if (g_img_zoomScale >= 0) {
+				g_RectW_s = ((lParam >> 00) & 0x0000FFFF) >> g_img_zoomScale;
+				g_RectH_s = ((lParam >> 16) & 0x0000FFFF) >> g_img_zoomScale;
 			}
 			else {
-				g_Width_s  = ((lParam >> 00) & 0x0000FFFF) << -g_zoomScale;
-				g_Height_s = ((lParam >> 16) & 0x0000FFFF) << -g_zoomScale;
+				g_RectW_s = ((lParam >> 00) & 0x0000FFFF) << -g_img_zoomScale;
+				g_RectH_s = ((lParam >> 16) & 0x0000FFFF) << -g_img_zoomScale;
 			}
 
-//			std::cout << "x1 = " << g_Width_s << "\ty1 = " << g_Height_s << std::endl;
+//			std::cout << "x1 = " << g_RectW_s << "\ty1 = " << g_RectH_s << std::endl;
 
 			return 0;
 		}
 		case WM_LBUTTONUP:
 		{
-			g_is_clicked = 0;
+			g_is_clicked_LBUTTON = 0;
 
-			if (g_zoomScale >= 0) {
-				g_Width_e  = ((lParam >> 00) & 0x0000FFFF) >> g_zoomScale;
-				g_Height_e = ((lParam >> 16) & 0x0000FFFF) >> g_zoomScale;
+			if (g_img_zoomScale >= 0) {
+				g_RectW_e = ((lParam >> 00) & 0x0000FFFF) >> g_img_zoomScale;
+				g_RectH_e = ((lParam >> 16) & 0x0000FFFF) >> g_img_zoomScale;
 			}
 			else {
-				g_Width_e  = ((lParam >> 00) & 0x0000FFFF) << -g_zoomScale;
-				g_Height_e = ((lParam >> 16) & 0x0000FFFF) << -g_zoomScale;
+				g_RectW_e = ((lParam >> 00) & 0x0000FFFF) << -g_img_zoomScale;
+				g_RectH_e = ((lParam >> 16) & 0x0000FFFF) << -g_img_zoomScale;
 			}
 
-//			std::cout << "x2 = " << g_Width_e << "\ty2 = " << g_Height_e << std::endl;
+//			std::cout << "x2 = " << g_RectW_e << "\ty2 = " << g_RectH_e << std::endl;
 
 			hdc = GetDC(hWnd);
 			SelectObject(hdc, GetStockObject(NULL_BRUSH));
 
-			if (g_zoomScale >= 0) {
+			if (g_img_zoomScale >= 0) {
 				Rectangle(hdc, 
-					g_Width_s  << g_zoomScale, 
-					g_Height_s << g_zoomScale, 
-					g_Width_e  << g_zoomScale, 
-					g_Height_e << g_zoomScale);
+					g_RectW_s << g_img_zoomScale, 
+					g_RectH_s << g_img_zoomScale, 
+					g_RectW_e << g_img_zoomScale, 
+					g_RectH_e << g_img_zoomScale);
 			}
 			else {
 				Rectangle(hdc, 
-					g_Width_s  >> -g_zoomScale, 
-					g_Height_s >> -g_zoomScale, 
-					g_Width_e  >> -g_zoomScale, 
-					g_Height_e >> -g_zoomScale);
+					g_RectW_s >> -g_img_zoomScale, 
+					g_RectH_s >> -g_img_zoomScale, 
+					g_RectW_e >> -g_img_zoomScale, 
+					g_RectH_e >> -g_img_zoomScale);
 			}
 
 			ReleaseDC(hWnd, hdc);
@@ -765,17 +803,29 @@ LRESULT CALLBACK WndProc_Img(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			wc_crop.style = NULL;
 			RegisterClass(&wc_crop);
 
-			if (g_Width_s > g_Width_e) {
+			if (g_RectW_s > g_RectW_e) {
 				wnd_crop = CreateWindow(class_name_crop, "Crop", WS_POPUP | WS_OVERLAPPEDWINDOW | WS_TABSTOP,
-					1200, 80, (g_Width_s - g_Width_e) << 1, (g_Height_s - g_Height_e) << 1, hWnd, NULL, NULL, NULL);
+					1200, 80, (g_RectW_s - g_RectW_e) << g_crop_zoomScale, (g_RectH_s - g_RectH_e) << g_crop_zoomScale, hWnd, NULL, NULL, NULL);
 			}
 			else {
 				wnd_crop = CreateWindow(class_name_crop, "Crop", WS_POPUP | WS_OVERLAPPEDWINDOW | WS_TABSTOP,
-					1200, 80, (g_Width_e - g_Width_s) << 1, (g_Height_e - g_Height_s) << 1, hWnd, NULL, NULL, NULL);
+					1200, 80, (g_RectW_e - g_RectW_s) << g_crop_zoomScale, (g_RectH_e - g_RectH_s) << g_crop_zoomScale, hWnd, NULL, NULL, NULL);
 			}
 
 			ShowWindow(wnd_crop, SW_SHOW);
 			g_hCropWnd = wnd_crop;
+
+			return 0;
+		}
+		case WM_RBUTTONDOWN:
+		{
+			g_is_clicked_RBUTTON = 1;
+
+			return 0;
+		}
+		case WM_RBUTTONUP:
+		{
+			g_is_clicked_RBUTTON = 0;
 
 			return 0;
 		}
@@ -805,6 +855,11 @@ LRESULT CALLBACK WndProc_Main(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 				ShowWindow(wnd_dlg , SW_SHOW);
 				g_hDlgWnd = wnd_dlg;
 			}
+
+			g_is_clicked_LBUTTON = 0;
+			g_is_clicked_RBUTTON = 0;
+			g_cur_x = 0;
+			g_cur_y = 0;
 
 			return 0;
 		}
@@ -862,13 +917,13 @@ LRESULT CALLBACK WndProc_Main(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 			wc_img.style = NULL;
 			RegisterClass(&wc_img);
 
-			if (g_zoomScale >= 0) {
+			if (g_img_zoomScale >= 0) {
 				wnd_img = CreateWindowEx(0, class_name_img, "Img", WS_OVERLAPPEDWINDOW | WS_CHILD | WS_TABSTOP,
-					10, 10, iWidth << g_zoomScale, iHeight << g_zoomScale, hWnd, NULL, NULL, NULL);
+					10, 10, iWidth << g_img_zoomScale, iHeight << g_img_zoomScale, hWnd, NULL, NULL, NULL);
 			}
 			else {
 				wnd_img = CreateWindowEx(0, class_name_img, "Img", WS_OVERLAPPEDWINDOW | WS_CHILD | WS_TABSTOP,
-					10, 10, iWidth >> -g_zoomScale, iHeight >> -g_zoomScale, hWnd, NULL, NULL, NULL);
+					10, 10, iWidth >> -g_img_zoomScale, iHeight >> -g_img_zoomScale, hWnd, NULL, NULL, NULL);
 			}
 
 			ShowWindow(wnd_img, SW_SHOW);
