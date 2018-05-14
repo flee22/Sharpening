@@ -67,11 +67,13 @@ struct BmpInfoHeader {
 };
 #pragma pack(pop)
 
+// Global Class
 HINSTANCE g_hInst;
 HWND g_hDlgWnd, g_hMainWnd, g_hImgWnd, g_hCropWnd;
 HBITMAP MyBitmap, CropBitmap;
 HDC hdc;
 
+// Global Variables
 int g_is_clicked_LBUTTON, g_is_clicked_RBUTTON;
 int g_RectW_s, g_RectW_e, g_RectH_s, g_RectH_e;
 int g_cur_x, g_cur_y;
@@ -580,14 +582,20 @@ BOOL CALLBACK WndProc_Dlg(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					 g_hpf[11] = GetDlgItemInt(hDlg, ID_HPF_12, NULL, TRUE);
 					 g_hpf[12] = GetDlgItemInt(hDlg, ID_HPF_13, NULL, TRUE);
 					 g_hpf[13] = GetDlgItemInt(hDlg, ID_HPF_14, NULL, TRUE);
-					 g_hpf[14] = GetDlgItemInt(hDlg, ID_HPF_15, NULL, TRUE);
+					 g_hpf[14] = (int)(g_hpf[0] * 4 + g_hpf[1] * 8 +  g_hpf[2] * 8 +  g_hpf[3] * 8 +  g_hpf[4] * 4
+													+ g_hpf[5] * 4 +  g_hpf[6] * 8 +  g_hpf[7] * 8 +  g_hpf[8] * 4
+																   +  g_hpf[9] * 4 + g_hpf[10] * 8 + g_hpf[11] * 4
+																				   + g_hpf[12] * 4 + g_hpf[13] * 4) * -1 ;
 					g_hpf_coef = GetDlgItemInt(hDlg, ID_HPF_ALPHA, NULL, FALSE);
 
-					if (g_hImgWnd)
+					// Update center pixel value by calculation
+					SetDlgItemInt(hDlg, ID_HPF_15, g_hpf[14], TRUE);
+
+					if (IsWindow(g_hImgWnd))
 					{
 						Sharpening(g_argv);
-						InvalidateRect(g_hImgWnd, NULL, TRUE);
-						InvalidateRect(g_hCropWnd, NULL, TRUE);
+						InvalidateRect(g_hImgWnd, NULL, FALSE);
+						InvalidateRect(g_hCropWnd, NULL, FALSE);
 					}
 					return TRUE;
 				}
@@ -712,7 +720,7 @@ LRESULT CALLBACK WndProc_Img(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		{
 			if (g_is_clicked_RBUTTON) 
 			{
-				// Get current Mouse xy point at Client area
+				// Get current mouse points at Client area
 				if (g_img_zoomScale >= 0) {
 					g_cur_x = ((lParam >> 00) & 0x0000FFFF) >> g_img_zoomScale;
 					g_cur_y = ((lParam >> 16) & 0x0000FFFF) >> g_img_zoomScale;
@@ -833,7 +841,7 @@ LRESULT CALLBACK WndProc_Img(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		{
 			DeleteObject(MyBitmap);
 			DeleteObject(CropBitmap);
-			DestroyWindow(g_hDlgWnd);
+//			DestroyWindow(g_hDlgWnd);
 			DestroyWindow(g_hCropWnd);
 			DeleteDC(hdc);
 			return 0;
@@ -848,18 +856,18 @@ LRESULT CALLBACK WndProc_Main(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 	{
 		case WM_CREATE:
 		{
-			if (!IsWindow(g_hDlgWnd))
-			{
-				HWND wnd_dlg;
-				wnd_dlg = CreateDialog(g_hInst, MAKEINTRESOURCE(IDD_DIALOG1), hWnd, WndProc_Dlg);
-				ShowWindow(wnd_dlg , SW_SHOW);
-				g_hDlgWnd = wnd_dlg;
-			}
-
 			g_is_clicked_LBUTTON = 0;
 			g_is_clicked_RBUTTON = 0;
 			g_cur_x = 0;
 			g_cur_y = 0;
+
+			if (!IsWindow(g_hDlgWnd))
+			{
+				HWND wnd_dlg;
+				wnd_dlg = CreateDialog(g_hInst, MAKEINTRESOURCE(IDD_DIALOG1), hWnd, WndProc_Dlg);
+				ShowWindow(wnd_dlg, SW_SHOW);
+				g_hDlgWnd = wnd_dlg;
+			}
 
 			return 0;
 		}
