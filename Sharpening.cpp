@@ -69,22 +69,24 @@ struct BmpInfoHeader {
 
 // Global Class
 HINSTANCE g_hInst;
-HWND g_hDlgWnd, g_hMainWnd, g_hImgWnd, g_hCropWnd;
-HBITMAP MyBitmap, CropBitmap;
+HWND g_hDlgWnd1, g_hDlgWnd2, g_hMainWnd, g_hImgWnd, g_hDbgWnd1, g_hDbgWnd2;
+HBITMAP MyBitmap, DbgBitmap1, DbgBitmap2;
 HDC hdc;
 
 // Global Variables
 int g_is_clicked_LBUTTON, g_is_clicked_RBUTTON;
 int g_RectW_s, g_RectW_e, g_RectH_s, g_RectH_e;
+int g_rect_x, g_rect_y, g_rect_width, g_rect_height;
 int g_cur_x, g_cur_y;
 int g_argc;
 char g_argv[MAX_PATH];
-char g_argv_bmp[MAX_PATH];
-char g_argv_dbg[MAX_PATH];
-int g_hpf[15];
-int g_hpf_coef;
+char g_argv_img[MAX_PATH];
+char g_argv_dbg1[MAX_PATH];
+char g_argv_dbg2[MAX_PATH];
 int g_img_zoomScale = -2;
-int g_crop_zoomScale = 2;
+int g_dbg_zoomScale = 2;
+int g_hpf_kernel1[15], g_hpf_kernel2[15];
+int g_hpf_coef1, g_hpf_coef2;
 
 int IMG_SIZE_Y = iWidth * iHeight;
 int IMG_SIZE_YCrCb = IMG_SIZE_Y + (IMG_SIZE_Y >> 1); // Full Size = Y size + CrCb size
@@ -211,7 +213,7 @@ void Yvu2rgb(int * yvu_array, int width, int height, unsigned char * rgb_array)
 	delete[] b_tmp;
 }
 
-void Sharpening(char * argv)
+void Sharpening(char * argv_in, int * hpf_kernel, int hpf_coef, char * argv_out)
 {
 	int i, j, alpha;
 	char * image;
@@ -223,16 +225,21 @@ void Sharpening(char * argv)
 	unsigned char * rgb_dbg;
 
 	string str1 = "_Sharpened.yuv";
-	string str2 = "_Sharpened_dbg.bmp";
+//	string str2 = (string)argv_out;
 	string str3 = "_Sharpened.bmp";
 
 	BmpFileHeader bfHeader;
 	BmpInfoHeader biHeader;
 
-	ifstream file1(argv, ios::in | ios::binary | ios::ate);
-	ofstream file2(argv + str1, ios::out | ios::binary);
-	ofstream file3(argv + str2, ios::out | ios::binary);
-	ofstream file4(argv + str3, ios::out | ios::binary);
+	cout << argv_in << endl;
+	cout << argv_in + str1 << endl;
+	cout << argv_out << endl;
+	cout << argv_in + str3 << endl;
+
+	ifstream file1(argv_in, ios::in | ios::binary | ios::ate);
+	ofstream file2(argv_in + str1, ios::out | ios::binary);
+	ofstream file3(argv_out, ios::out | ios::binary);
+	ofstream file4(argv_in + str3, ios::out | ios::binary);
 
 	if (file1.is_open() & file2.is_open() & file3.is_open() & file4.is_open())
 	{
@@ -270,7 +277,7 @@ void Sharpening(char * argv)
 		}
 
 		// Coeficient for Sharpening strength
-		alpha = g_hpf_coef;
+		alpha = hpf_coef;
 
 		// Sharpening
 		for (j = 0; j < iHeight; j++)
@@ -302,95 +309,95 @@ void Sharpening(char * argv)
 					/*************************************************************************************************/
 					Pixel_Y[(j * iWidth) + i] =
 						(
-							image_temp_int[((j - 4) * iWidth) + (i - 4)] * g_hpf[0] + 
-							image_temp_int[((j - 4) * iWidth) + (i - 3)] * g_hpf[1] + 
-							image_temp_int[((j - 4) * iWidth) + (i - 2)] * g_hpf[2] + 
-							image_temp_int[((j - 4) * iWidth) + (i - 1)] * g_hpf[3] + 
-							image_temp_int[((j - 4) * iWidth) + (i + 0)] * g_hpf[4] + 
-							image_temp_int[((j - 4) * iWidth) + (i + 1)] * g_hpf[3] + 
-							image_temp_int[((j - 4) * iWidth) + (i + 2)] * g_hpf[2] + 
-							image_temp_int[((j - 4) * iWidth) + (i + 3)] * g_hpf[1] + 
-							image_temp_int[((j - 4) * iWidth) + (i + 4)] * g_hpf[0] +
+							image_temp_int[((j - 4) * iWidth) + (i - 4)] * hpf_kernel[0] + 
+							image_temp_int[((j - 4) * iWidth) + (i - 3)] * hpf_kernel[1] + 
+							image_temp_int[((j - 4) * iWidth) + (i - 2)] * hpf_kernel[2] + 
+							image_temp_int[((j - 4) * iWidth) + (i - 1)] * hpf_kernel[3] + 
+							image_temp_int[((j - 4) * iWidth) + (i + 0)] * hpf_kernel[4] + 
+							image_temp_int[((j - 4) * iWidth) + (i + 1)] * hpf_kernel[3] + 
+							image_temp_int[((j - 4) * iWidth) + (i + 2)] * hpf_kernel[2] + 
+							image_temp_int[((j - 4) * iWidth) + (i + 3)] * hpf_kernel[1] + 
+							image_temp_int[((j - 4) * iWidth) + (i + 4)] * hpf_kernel[0] +
 
-							image_temp_int[((j - 3) * iWidth) + (i - 4)] * g_hpf[1] +
-							image_temp_int[((j - 3) * iWidth) + (i - 3)] * g_hpf[5] +
-							image_temp_int[((j - 3) * iWidth) + (i - 2)] * g_hpf[6] +
-							image_temp_int[((j - 3) * iWidth) + (i - 1)] * g_hpf[7] +
-							image_temp_int[((j - 3) * iWidth) + (i + 0)] * g_hpf[8] +
-							image_temp_int[((j - 3) * iWidth) + (i + 1)] * g_hpf[7] +
-							image_temp_int[((j - 3) * iWidth) + (i + 2)] * g_hpf[6] +
-							image_temp_int[((j - 3) * iWidth) + (i + 3)] * g_hpf[5] +
-							image_temp_int[((j - 3) * iWidth) + (i + 4)] * g_hpf[1] +
+							image_temp_int[((j - 3) * iWidth) + (i - 4)] * hpf_kernel[1] +
+							image_temp_int[((j - 3) * iWidth) + (i - 3)] * hpf_kernel[5] +
+							image_temp_int[((j - 3) * iWidth) + (i - 2)] * hpf_kernel[6] +
+							image_temp_int[((j - 3) * iWidth) + (i - 1)] * hpf_kernel[7] +
+							image_temp_int[((j - 3) * iWidth) + (i + 0)] * hpf_kernel[8] +
+							image_temp_int[((j - 3) * iWidth) + (i + 1)] * hpf_kernel[7] +
+							image_temp_int[((j - 3) * iWidth) + (i + 2)] * hpf_kernel[6] +
+							image_temp_int[((j - 3) * iWidth) + (i + 3)] * hpf_kernel[5] +
+							image_temp_int[((j - 3) * iWidth) + (i + 4)] * hpf_kernel[1] +
 
-							image_temp_int[((j - 2) * iWidth) + (i - 4)] * g_hpf[2] +
-							image_temp_int[((j - 2) * iWidth) + (i - 3)] * g_hpf[6] +
-							image_temp_int[((j - 2) * iWidth) + (i - 2)] * g_hpf[9] +
-							image_temp_int[((j - 2) * iWidth) + (i - 1)] * g_hpf[10] +
-							image_temp_int[((j - 2) * iWidth) + (i + 0)] * g_hpf[11] +
-							image_temp_int[((j - 2) * iWidth) + (i + 1)] * g_hpf[10] +
-							image_temp_int[((j - 2) * iWidth) + (i + 2)] * g_hpf[9] +
-							image_temp_int[((j - 2) * iWidth) + (i + 3)] * g_hpf[6] +
-							image_temp_int[((j - 2) * iWidth) + (i + 4)] * g_hpf[2] +
+							image_temp_int[((j - 2) * iWidth) + (i - 4)] * hpf_kernel[2] +
+							image_temp_int[((j - 2) * iWidth) + (i - 3)] * hpf_kernel[6] +
+							image_temp_int[((j - 2) * iWidth) + (i - 2)] * hpf_kernel[9] +
+							image_temp_int[((j - 2) * iWidth) + (i - 1)] * hpf_kernel[10] +
+							image_temp_int[((j - 2) * iWidth) + (i + 0)] * hpf_kernel[11] +
+							image_temp_int[((j - 2) * iWidth) + (i + 1)] * hpf_kernel[10] +
+							image_temp_int[((j - 2) * iWidth) + (i + 2)] * hpf_kernel[9] +
+							image_temp_int[((j - 2) * iWidth) + (i + 3)] * hpf_kernel[6] +
+							image_temp_int[((j - 2) * iWidth) + (i + 4)] * hpf_kernel[2] +
 
-							image_temp_int[((j - 1) * iWidth) + (i - 4)] * g_hpf[3] +
-							image_temp_int[((j - 1) * iWidth) + (i - 3)] * g_hpf[7] +
-							image_temp_int[((j - 1) * iWidth) + (i - 2)] * g_hpf[10] +
-							image_temp_int[((j - 1) * iWidth) + (i - 1)] * g_hpf[12] +
-							image_temp_int[((j - 1) * iWidth) + (i + 0)] * g_hpf[13] +
-							image_temp_int[((j - 1) * iWidth) + (i + 1)] * g_hpf[12] +
-							image_temp_int[((j - 1) * iWidth) + (i + 2)] * g_hpf[10] +
-							image_temp_int[((j - 1) * iWidth) + (i + 3)] * g_hpf[7] +
-							image_temp_int[((j - 1) * iWidth) + (i + 4)] * g_hpf[3] +
+							image_temp_int[((j - 1) * iWidth) + (i - 4)] * hpf_kernel[3] +
+							image_temp_int[((j - 1) * iWidth) + (i - 3)] * hpf_kernel[7] +
+							image_temp_int[((j - 1) * iWidth) + (i - 2)] * hpf_kernel[10] +
+							image_temp_int[((j - 1) * iWidth) + (i - 1)] * hpf_kernel[12] +
+							image_temp_int[((j - 1) * iWidth) + (i + 0)] * hpf_kernel[13] +
+							image_temp_int[((j - 1) * iWidth) + (i + 1)] * hpf_kernel[12] +
+							image_temp_int[((j - 1) * iWidth) + (i + 2)] * hpf_kernel[10] +
+							image_temp_int[((j - 1) * iWidth) + (i + 3)] * hpf_kernel[7] +
+							image_temp_int[((j - 1) * iWidth) + (i + 4)] * hpf_kernel[3] +
 
-							image_temp_int[((j + 0) * iWidth) + (i - 4)] * g_hpf[4] +
-							image_temp_int[((j + 0) * iWidth) + (i - 3)] * g_hpf[8] +
-							image_temp_int[((j + 0) * iWidth) + (i - 2)] * g_hpf[11] +
-							image_temp_int[((j + 0) * iWidth) + (i - 1)] * g_hpf[13] +
-							image_temp_int[((j + 0) * iWidth) + (i + 0)] * g_hpf[14] +
-							image_temp_int[((j + 0) * iWidth) + (i + 1)] * g_hpf[13] +
-							image_temp_int[((j + 0) * iWidth) + (i + 2)] * g_hpf[11] +
-							image_temp_int[((j + 0) * iWidth) + (i + 3)] * g_hpf[8] +
-							image_temp_int[((j + 0) * iWidth) + (i + 4)] * g_hpf[4] +
+							image_temp_int[((j + 0) * iWidth) + (i - 4)] * hpf_kernel[4] +
+							image_temp_int[((j + 0) * iWidth) + (i - 3)] * hpf_kernel[8] +
+							image_temp_int[((j + 0) * iWidth) + (i - 2)] * hpf_kernel[11] +
+							image_temp_int[((j + 0) * iWidth) + (i - 1)] * hpf_kernel[13] +
+							image_temp_int[((j + 0) * iWidth) + (i + 0)] * hpf_kernel[14] +
+							image_temp_int[((j + 0) * iWidth) + (i + 1)] * hpf_kernel[13] +
+							image_temp_int[((j + 0) * iWidth) + (i + 2)] * hpf_kernel[11] +
+							image_temp_int[((j + 0) * iWidth) + (i + 3)] * hpf_kernel[8] +
+							image_temp_int[((j + 0) * iWidth) + (i + 4)] * hpf_kernel[4] +
 
-							image_temp_int[((j + 1) * iWidth) + (i - 4)] * g_hpf[3] +
-							image_temp_int[((j + 1) * iWidth) + (i - 3)] * g_hpf[7] +
-							image_temp_int[((j + 1) * iWidth) + (i - 2)] * g_hpf[10] +
-							image_temp_int[((j + 1) * iWidth) + (i - 1)] * g_hpf[12] +
-							image_temp_int[((j + 1) * iWidth) + (i + 0)] * g_hpf[13] +
-							image_temp_int[((j + 1) * iWidth) + (i + 1)] * g_hpf[12] +
-							image_temp_int[((j + 1) * iWidth) + (i + 2)] * g_hpf[10] +
-							image_temp_int[((j + 1) * iWidth) + (i + 3)] * g_hpf[7] +
-							image_temp_int[((j + 1) * iWidth) + (i + 4)] * g_hpf[3] +
+							image_temp_int[((j + 1) * iWidth) + (i - 4)] * hpf_kernel[3] +
+							image_temp_int[((j + 1) * iWidth) + (i - 3)] * hpf_kernel[7] +
+							image_temp_int[((j + 1) * iWidth) + (i - 2)] * hpf_kernel[10] +
+							image_temp_int[((j + 1) * iWidth) + (i - 1)] * hpf_kernel[12] +
+							image_temp_int[((j + 1) * iWidth) + (i + 0)] * hpf_kernel[13] +
+							image_temp_int[((j + 1) * iWidth) + (i + 1)] * hpf_kernel[12] +
+							image_temp_int[((j + 1) * iWidth) + (i + 2)] * hpf_kernel[10] +
+							image_temp_int[((j + 1) * iWidth) + (i + 3)] * hpf_kernel[7] +
+							image_temp_int[((j + 1) * iWidth) + (i + 4)] * hpf_kernel[3] +
 
-							image_temp_int[((j + 2) * iWidth) + (i - 4)] * g_hpf[2] +
-							image_temp_int[((j + 2) * iWidth) + (i - 3)] * g_hpf[6] +
-							image_temp_int[((j + 2) * iWidth) + (i - 2)] * g_hpf[9] +
-							image_temp_int[((j + 2) * iWidth) + (i - 1)] * g_hpf[10] +
-							image_temp_int[((j + 2) * iWidth) + (i + 0)] * g_hpf[11] +
-							image_temp_int[((j + 2) * iWidth) + (i + 1)] * g_hpf[10] +
-							image_temp_int[((j + 2) * iWidth) + (i + 2)] * g_hpf[9] +
-							image_temp_int[((j + 2) * iWidth) + (i + 3)] * g_hpf[6] +
-							image_temp_int[((j + 2) * iWidth) + (i + 4)] * g_hpf[2] +
+							image_temp_int[((j + 2) * iWidth) + (i - 4)] * hpf_kernel[2] +
+							image_temp_int[((j + 2) * iWidth) + (i - 3)] * hpf_kernel[6] +
+							image_temp_int[((j + 2) * iWidth) + (i - 2)] * hpf_kernel[9] +
+							image_temp_int[((j + 2) * iWidth) + (i - 1)] * hpf_kernel[10] +
+							image_temp_int[((j + 2) * iWidth) + (i + 0)] * hpf_kernel[11] +
+							image_temp_int[((j + 2) * iWidth) + (i + 1)] * hpf_kernel[10] +
+							image_temp_int[((j + 2) * iWidth) + (i + 2)] * hpf_kernel[9] +
+							image_temp_int[((j + 2) * iWidth) + (i + 3)] * hpf_kernel[6] +
+							image_temp_int[((j + 2) * iWidth) + (i + 4)] * hpf_kernel[2] +
 
-							image_temp_int[((j + 3) * iWidth) + (i - 4)] * g_hpf[1] +
-							image_temp_int[((j + 3) * iWidth) + (i - 3)] * g_hpf[5] +
-							image_temp_int[((j + 3) * iWidth) + (i - 2)] * g_hpf[6] +
-							image_temp_int[((j + 3) * iWidth) + (i - 1)] * g_hpf[7] +
-							image_temp_int[((j + 3) * iWidth) + (i + 0)] * g_hpf[8] +
-							image_temp_int[((j + 3) * iWidth) + (i + 1)] * g_hpf[7] +
-							image_temp_int[((j + 3) * iWidth) + (i + 2)] * g_hpf[6] +
-							image_temp_int[((j + 3) * iWidth) + (i + 3)] * g_hpf[5] +
-							image_temp_int[((j + 3) * iWidth) + (i + 4)] * g_hpf[1] +
+							image_temp_int[((j + 3) * iWidth) + (i - 4)] * hpf_kernel[1] +
+							image_temp_int[((j + 3) * iWidth) + (i - 3)] * hpf_kernel[5] +
+							image_temp_int[((j + 3) * iWidth) + (i - 2)] * hpf_kernel[6] +
+							image_temp_int[((j + 3) * iWidth) + (i - 1)] * hpf_kernel[7] +
+							image_temp_int[((j + 3) * iWidth) + (i + 0)] * hpf_kernel[8] +
+							image_temp_int[((j + 3) * iWidth) + (i + 1)] * hpf_kernel[7] +
+							image_temp_int[((j + 3) * iWidth) + (i + 2)] * hpf_kernel[6] +
+							image_temp_int[((j + 3) * iWidth) + (i + 3)] * hpf_kernel[5] +
+							image_temp_int[((j + 3) * iWidth) + (i + 4)] * hpf_kernel[1] +
 
-							image_temp_int[((j + 4) * iWidth) + (i - 4)] * g_hpf[0] +
-							image_temp_int[((j + 4) * iWidth) + (i - 3)] * g_hpf[1] +
-							image_temp_int[((j + 4) * iWidth) + (i - 2)] * g_hpf[2] +
-							image_temp_int[((j + 4) * iWidth) + (i - 1)] * g_hpf[3] +
-							image_temp_int[((j + 4) * iWidth) + (i + 0)] * g_hpf[4] +
-							image_temp_int[((j + 4) * iWidth) + (i + 1)] * g_hpf[3] +
-							image_temp_int[((j + 4) * iWidth) + (i + 2)] * g_hpf[2] +
-							image_temp_int[((j + 4) * iWidth) + (i + 3)] * g_hpf[1] +
-							image_temp_int[((j + 4) * iWidth) + (i + 4)] * g_hpf[0]
+							image_temp_int[((j + 4) * iWidth) + (i - 4)] * hpf_kernel[0] +
+							image_temp_int[((j + 4) * iWidth) + (i - 3)] * hpf_kernel[1] +
+							image_temp_int[((j + 4) * iWidth) + (i - 2)] * hpf_kernel[2] +
+							image_temp_int[((j + 4) * iWidth) + (i - 1)] * hpf_kernel[3] +
+							image_temp_int[((j + 4) * iWidth) + (i + 0)] * hpf_kernel[4] +
+							image_temp_int[((j + 4) * iWidth) + (i + 1)] * hpf_kernel[3] +
+							image_temp_int[((j + 4) * iWidth) + (i + 2)] * hpf_kernel[2] +
+							image_temp_int[((j + 4) * iWidth) + (i + 3)] * hpf_kernel[1] +
+							image_temp_int[((j + 4) * iWidth) + (i + 4)] * hpf_kernel[0]
 						) / 1024 * alpha;
 				}
 			}
@@ -455,7 +462,7 @@ void Sharpening(char * argv)
 		file4.seekp(sizeof(bfHeader) + sizeof(biHeader));
 		file4.write((const char*)rgb, IMG_SIZE_Y * 3);
 
-		cout << argv << " Sharpening has been adjusted" << endl;
+		cout << argv_in << " Sharpening has been adjusted" << endl;
 
 		file1.close();
 		file2.close();
@@ -503,7 +510,7 @@ void DrawBitmap(HDC hdc, int x, int y, int Width, int Height, HBITMAP hBitmap)
 	DeleteDC(MemDC);
 }
 
-void DrawCropBitmap(HDC hdc, int x, int y, int Width, int Height, HBITMAP hBitmap)
+void DrawDbgBitmap(HDC hdc, int x, int y, int Width, int Height, HBITMAP hBitmap)
 {
 	HDC mDC;
 	BITMAP bit;
@@ -515,18 +522,18 @@ void DrawCropBitmap(HDC hdc, int x, int y, int Width, int Height, HBITMAP hBitma
 	GetObject(hBitmap, sizeof(BITMAP), &bit);
 
 	SetStretchBltMode(hdc, COLORONCOLOR);
-	StretchBlt(hdc, 0, 0, Width << g_crop_zoomScale, Height << g_crop_zoomScale, mDC, x, y, Width, Height, SRCCOPY);
+	StretchBlt(hdc, 0, 0, Width << g_dbg_zoomScale, Height << g_dbg_zoomScale, mDC, x, y, Width, Height, SRCCOPY);
 
 	SelectObject(mDC, OldBitmap);
 	DeleteDC(mDC);
 }
 
 
-BOOL CALLBACK WndProc_Dlg(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+BOOL CALLBACK WndProc_Dlg1(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	switch (uMsg)
 	{
-		case WM_INITDIALOG: 
+		case WM_INITDIALOG:
 		{
 			SetDlgItemText(hDlg, ID_HPF_01, "0");
 			SetDlgItemText(hDlg, ID_HPF_02, "0");
@@ -543,63 +550,62 @@ BOOL CALLBACK WndProc_Dlg(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			SetDlgItemText(hDlg, ID_HPF_13, "-511");
 			SetDlgItemText(hDlg, ID_HPF_14, "0");
 			SetDlgItemText(hDlg, ID_HPF_15, "2044");
-			SetDlgItemText(hDlg, ID_HPF_ALPHA, "2");
-			  g_hpf[0] = 0;
-			  g_hpf[1] = 0;
-			  g_hpf[2] = 0;
-			  g_hpf[3] = 0;
-			  g_hpf[4] = 0;
-			  g_hpf[5] = 0;
-			  g_hpf[6] = 0;
-			  g_hpf[7] = 0;
-			  g_hpf[8] = 0;
-			  g_hpf[9] = 0;
-			 g_hpf[10] = 0;
-			 g_hpf[11] = 0;
-			 g_hpf[12] = -511;
-			 g_hpf[13] = 0;
-			 g_hpf[14] = 2044;
-			g_hpf_coef = 2;
+			SetDlgItemText(hDlg, ID_HPF_ALPHA_1, "2");
+			g_hpf_kernel1[0] = 0;
+			g_hpf_kernel1[1] = 0;
+			g_hpf_kernel1[2] = 0;
+			g_hpf_kernel1[3] = 0;
+			g_hpf_kernel1[4] = 0;
+			g_hpf_kernel1[5] = 0;
+			g_hpf_kernel1[6] = 0;
+			g_hpf_kernel1[7] = 0;
+			g_hpf_kernel1[8] = 0;
+			g_hpf_kernel1[9] = 0;
+			g_hpf_kernel1[10] = 0;
+			g_hpf_kernel1[11] = 0;
+			g_hpf_kernel1[12] = -511;
+			g_hpf_kernel1[13] = 0;
+			g_hpf_kernel1[14] = 2044;
+			g_hpf_coef1 = 2;
 			return TRUE;
 		}
 		case WM_COMMAND:
 		{
 			switch (wParam)
 			{
-				case ID_UPDATE:
+				case ID_UPDATE_1:
 				{
-					  g_hpf[0] = GetDlgItemInt(hDlg, ID_HPF_01, NULL, TRUE);
-					  g_hpf[1] = GetDlgItemInt(hDlg, ID_HPF_02, NULL, TRUE);
-					  g_hpf[2] = GetDlgItemInt(hDlg, ID_HPF_03, NULL, TRUE);
-					  g_hpf[3] = GetDlgItemInt(hDlg, ID_HPF_04, NULL, TRUE);
-					  g_hpf[4] = GetDlgItemInt(hDlg, ID_HPF_05, NULL, TRUE);
-					  g_hpf[5] = GetDlgItemInt(hDlg, ID_HPF_06, NULL, TRUE);
-					  g_hpf[6] = GetDlgItemInt(hDlg, ID_HPF_07, NULL, TRUE);
-					  g_hpf[7] = GetDlgItemInt(hDlg, ID_HPF_08, NULL, TRUE);
-					  g_hpf[8] = GetDlgItemInt(hDlg, ID_HPF_09, NULL, TRUE);
-					  g_hpf[9] = GetDlgItemInt(hDlg, ID_HPF_10, NULL, TRUE);
-					 g_hpf[10] = GetDlgItemInt(hDlg, ID_HPF_11, NULL, TRUE);
-					 g_hpf[11] = GetDlgItemInt(hDlg, ID_HPF_12, NULL, TRUE);
-					 g_hpf[12] = GetDlgItemInt(hDlg, ID_HPF_13, NULL, TRUE);
-					 g_hpf[13] = GetDlgItemInt(hDlg, ID_HPF_14, NULL, TRUE);
-					 g_hpf[14] = (int)(g_hpf[0] * 4 + g_hpf[1] * 8 +  g_hpf[2] * 8 +  g_hpf[3] * 8 +  g_hpf[4] * 4
-													+ g_hpf[5] * 4 +  g_hpf[6] * 8 +  g_hpf[7] * 8 +  g_hpf[8] * 4
-																   +  g_hpf[9] * 4 + g_hpf[10] * 8 + g_hpf[11] * 4
-																				   + g_hpf[12] * 4 + g_hpf[13] * 4) * -1 ;
-					g_hpf_coef = GetDlgItemInt(hDlg, ID_HPF_ALPHA, NULL, FALSE);
+					g_hpf_kernel1[0] = GetDlgItemInt(hDlg, ID_HPF_01, NULL, TRUE);
+					g_hpf_kernel1[1] = GetDlgItemInt(hDlg, ID_HPF_02, NULL, TRUE);
+					g_hpf_kernel1[2] = GetDlgItemInt(hDlg, ID_HPF_03, NULL, TRUE);
+					g_hpf_kernel1[3] = GetDlgItemInt(hDlg, ID_HPF_04, NULL, TRUE);
+					g_hpf_kernel1[4] = GetDlgItemInt(hDlg, ID_HPF_05, NULL, TRUE);
+					g_hpf_kernel1[5] = GetDlgItemInt(hDlg, ID_HPF_06, NULL, TRUE);
+					g_hpf_kernel1[6] = GetDlgItemInt(hDlg, ID_HPF_07, NULL, TRUE);
+					g_hpf_kernel1[7] = GetDlgItemInt(hDlg, ID_HPF_08, NULL, TRUE);
+					g_hpf_kernel1[8] = GetDlgItemInt(hDlg, ID_HPF_09, NULL, TRUE);
+					g_hpf_kernel1[9] = GetDlgItemInt(hDlg, ID_HPF_10, NULL, TRUE);
+					g_hpf_kernel1[10] = GetDlgItemInt(hDlg, ID_HPF_11, NULL, TRUE);
+					g_hpf_kernel1[11] = GetDlgItemInt(hDlg, ID_HPF_12, NULL, TRUE);
+					g_hpf_kernel1[12] = GetDlgItemInt(hDlg, ID_HPF_13, NULL, TRUE);
+					g_hpf_kernel1[13] = GetDlgItemInt(hDlg, ID_HPF_14, NULL, TRUE);
+					g_hpf_kernel1[14] = (int)(g_hpf_kernel1[0] * 4 + g_hpf_kernel1[1] * 8 + g_hpf_kernel1[2] * 8 + g_hpf_kernel1[3] * 8 + g_hpf_kernel1[4] * 4
+						+ g_hpf_kernel1[5] * 4 + g_hpf_kernel1[6] * 8 + g_hpf_kernel1[7] * 8 + g_hpf_kernel1[8] * 4
+						+ g_hpf_kernel1[9] * 4 + g_hpf_kernel1[10] * 8 + g_hpf_kernel1[11] * 4
+						+ g_hpf_kernel1[12] * 4 + g_hpf_kernel1[13] * 4) * -1;
+					g_hpf_coef1 = GetDlgItemInt(hDlg, ID_HPF_ALPHA_1, NULL, FALSE);
 
 					// Update center pixel value by calculation
-					SetDlgItemInt(hDlg, ID_HPF_15, g_hpf[14], TRUE);
+					SetDlgItemInt(hDlg, ID_HPF_15, g_hpf_kernel1[14], TRUE);
 
 					if (IsWindow(g_hImgWnd))
 					{
-						Sharpening(g_argv);
-						InvalidateRect(g_hImgWnd, NULL, FALSE);
-						InvalidateRect(g_hCropWnd, NULL, FALSE);
+						Sharpening(g_argv, g_hpf_kernel1, g_hpf_coef1, g_argv_dbg1);
+						InvalidateRect(g_hDbgWnd1, NULL, FALSE);
 					}
 					return TRUE;
 				}
-				case ID_COPY:
+				case ID_COPY_1:
 				{
 					return TRUE;
 				}
@@ -610,7 +616,94 @@ BOOL CALLBACK WndProc_Dlg(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	return FALSE;
 }
 
-LRESULT CALLBACK WndProc_Crop(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+BOOL CALLBACK WndProc_Dlg2(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	switch (uMsg)
+	{
+		case WM_INITDIALOG:
+		{
+			SetDlgItemText(hDlg, ID_HPF_16, "0");
+			SetDlgItemText(hDlg, ID_HPF_17, "0");
+			SetDlgItemText(hDlg, ID_HPF_18, "0");
+			SetDlgItemText(hDlg, ID_HPF_19, "0");
+			SetDlgItemText(hDlg, ID_HPF_20, "0");
+			SetDlgItemText(hDlg, ID_HPF_21, "0");
+			SetDlgItemText(hDlg, ID_HPF_22, "0");
+			SetDlgItemText(hDlg, ID_HPF_23, "0");
+			SetDlgItemText(hDlg, ID_HPF_24, "0");
+			SetDlgItemText(hDlg, ID_HPF_25, "0");
+			SetDlgItemText(hDlg, ID_HPF_26, "0");
+			SetDlgItemText(hDlg, ID_HPF_27, "0");
+			SetDlgItemText(hDlg, ID_HPF_28, "0");
+			SetDlgItemText(hDlg, ID_HPF_29, "0");
+			SetDlgItemText(hDlg, ID_HPF_30, "0");
+			SetDlgItemText(hDlg, ID_HPF_ALPHA_2, "2");
+			g_hpf_kernel2[0] = 0;
+			g_hpf_kernel2[1] = 0;
+			g_hpf_kernel2[2] = 0;
+			g_hpf_kernel2[3] = 0;
+			g_hpf_kernel2[4] = 0;
+			g_hpf_kernel2[5] = 0;
+			g_hpf_kernel2[6] = 0;
+			g_hpf_kernel2[7] = 0;
+			g_hpf_kernel2[8] = 0;
+			g_hpf_kernel2[9] = 0;
+			g_hpf_kernel2[10] = 0;
+			g_hpf_kernel2[11] = 0;
+			g_hpf_kernel2[12] = 0;
+			g_hpf_kernel2[13] = 0;
+			g_hpf_kernel2[14] = 0;
+			g_hpf_coef2 = 2;
+			return TRUE;
+		}
+		case WM_COMMAND:
+		{
+			switch (wParam)
+			{
+				case ID_UPDATE_2:
+				{
+					g_hpf_kernel2[0] = GetDlgItemInt(hDlg, ID_HPF_16, NULL, TRUE);
+					g_hpf_kernel2[1] = GetDlgItemInt(hDlg, ID_HPF_17, NULL, TRUE);
+					g_hpf_kernel2[2] = GetDlgItemInt(hDlg, ID_HPF_18, NULL, TRUE);
+					g_hpf_kernel2[3] = GetDlgItemInt(hDlg, ID_HPF_19, NULL, TRUE);
+					g_hpf_kernel2[4] = GetDlgItemInt(hDlg, ID_HPF_20, NULL, TRUE);
+					g_hpf_kernel2[5] = GetDlgItemInt(hDlg, ID_HPF_21, NULL, TRUE);
+					g_hpf_kernel2[6] = GetDlgItemInt(hDlg, ID_HPF_22, NULL, TRUE);
+					g_hpf_kernel2[7] = GetDlgItemInt(hDlg, ID_HPF_23, NULL, TRUE);
+					g_hpf_kernel2[8] = GetDlgItemInt(hDlg, ID_HPF_24, NULL, TRUE);
+					g_hpf_kernel2[9] = GetDlgItemInt(hDlg, ID_HPF_25, NULL, TRUE);
+					g_hpf_kernel2[10] = GetDlgItemInt(hDlg, ID_HPF_26, NULL, TRUE);
+					g_hpf_kernel2[11] = GetDlgItemInt(hDlg, ID_HPF_27, NULL, TRUE);
+					g_hpf_kernel2[12] = GetDlgItemInt(hDlg, ID_HPF_28, NULL, TRUE);
+					g_hpf_kernel2[13] = GetDlgItemInt(hDlg, ID_HPF_29, NULL, TRUE);
+					g_hpf_kernel2[14] = (int)(g_hpf_kernel2[0] * 4 + g_hpf_kernel2[1] * 8 + g_hpf_kernel2[2] * 8 + g_hpf_kernel2[3] * 8 + g_hpf_kernel2[4] * 4
+						+ g_hpf_kernel2[5] * 4 + g_hpf_kernel2[6] * 8 + g_hpf_kernel2[7] * 8 + g_hpf_kernel2[8] * 4
+						+ g_hpf_kernel2[9] * 4 + g_hpf_kernel2[10] * 8 + g_hpf_kernel2[11] * 4
+						+ g_hpf_kernel2[12] * 4 + g_hpf_kernel2[13] * 4) * -1;
+					g_hpf_coef2 = GetDlgItemInt(hDlg, ID_HPF_ALPHA_2, NULL, FALSE);
+
+					// Update center pixel value by calculation
+					SetDlgItemInt(hDlg, ID_HPF_30, g_hpf_kernel2[14], TRUE);
+
+					if (IsWindow(g_hImgWnd))
+					{
+						Sharpening(g_argv, g_hpf_kernel2, g_hpf_coef2, g_argv_dbg2);
+						InvalidateRect(g_hDbgWnd2, NULL, FALSE);
+					}
+					return TRUE;
+				}
+				case ID_COPY_2:
+				{
+					return TRUE;
+				}
+			}
+		}
+		break;
+	}
+	return FALSE;
+}
+
+LRESULT CALLBACK WndProc_dbg1(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	PAINTSTRUCT ps;
 
@@ -622,17 +715,12 @@ LRESULT CALLBACK WndProc_Crop(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 		}
 		case WM_PAINT:
 		{
-			if (CropBitmap) DeleteObject(CropBitmap);
+			if (DbgBitmap1) DeleteObject(DbgBitmap1);
 
-			CropBitmap = (HBITMAP)LoadImage(NULL, g_argv_dbg, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
+			DbgBitmap1 = (HBITMAP)LoadImage(NULL, g_argv_dbg1, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
 
 			hdc = BeginPaint(hWnd, &ps);
-			if (g_RectW_s > g_RectW_e) {
-				DrawCropBitmap(hdc, g_RectW_e, g_RectH_e, (g_RectW_s - g_RectW_e), (g_RectH_s - g_RectH_e), CropBitmap);
-			}
-			else {
-				DrawCropBitmap(hdc, g_RectW_s, g_RectH_s, (g_RectW_e - g_RectW_s), (g_RectH_e - g_RectH_s), CropBitmap);
-			}
+			DrawDbgBitmap(hdc, g_rect_x, g_rect_y, g_rect_width, g_rect_height, DbgBitmap1);
 			EndPaint(hWnd, &ps);
 
 			return 0;
@@ -642,29 +730,85 @@ LRESULT CALLBACK WndProc_Crop(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 			if ((SHORT)HIWORD(wParam) > 0) 
 			{
 				// Zoom In
-				if (g_crop_zoomScale > 2) g_crop_zoomScale = 3;
-				else g_crop_zoomScale++;
+				if (g_dbg_zoomScale > 2) g_dbg_zoomScale = 3;
+				else g_dbg_zoomScale++;
 			}
 			else 
 			{
 				// Zoom Out
-				if (g_crop_zoomScale < 1) g_crop_zoomScale = 0;
-				else g_crop_zoomScale--;
+				if (g_dbg_zoomScale < 1) g_dbg_zoomScale = 0;
+				else g_dbg_zoomScale--;
 			}
 
-			SetWindowPos(hWnd, NULL, 0, 0, (g_RectW_e - g_RectW_s) << g_crop_zoomScale, (g_RectH_e - g_RectH_s) << g_crop_zoomScale, SWP_NOMOVE);
+			SetWindowPos(g_hDbgWnd1, NULL, 0, 0, g_rect_width << g_dbg_zoomScale, g_rect_height << g_dbg_zoomScale, SWP_NOMOVE);
+			SetWindowPos(g_hDbgWnd2, NULL, 0, 0, g_rect_width << g_dbg_zoomScale, g_rect_height << g_dbg_zoomScale, SWP_NOMOVE);
 
-			InvalidateRect(hWnd, NULL, FALSE); // Clear img
+			InvalidateRect(g_hDbgWnd1, NULL, FALSE);
+			InvalidateRect(g_hDbgWnd2, NULL, FALSE);
 
 			return 0;
 		}
 		case WM_DESTROY:
 		{
-			DeleteObject(CropBitmap);
+			DeleteObject(DbgBitmap1);
 			return 0;
 		}
 	}
 		return DefWindowProc(hWnd, uMsg, wParam, lParam);
+}
+
+LRESULT CALLBACK WndProc_dbg2(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	PAINTSTRUCT ps;
+
+	switch (uMsg)
+	{
+	case WM_CREATE:
+	{
+		return 0;
+	}
+	case WM_PAINT:
+	{
+		if (DbgBitmap2) DeleteObject(DbgBitmap2);
+
+		DbgBitmap2 = (HBITMAP)LoadImage(NULL, g_argv_dbg2, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
+
+		hdc = BeginPaint(hWnd, &ps);
+		DrawDbgBitmap(hdc, g_rect_x, g_rect_y, g_rect_width, g_rect_height, DbgBitmap2);
+		EndPaint(hWnd, &ps);
+
+		return 0;
+	}
+	case WM_MOUSEWHEEL:
+	{
+		if ((SHORT)HIWORD(wParam) > 0)
+		{
+			// Zoom In
+			if (g_dbg_zoomScale > 2) g_dbg_zoomScale = 3;
+			else g_dbg_zoomScale++;
+		}
+		else
+		{
+			// Zoom Out
+			if (g_dbg_zoomScale < 1) g_dbg_zoomScale = 0;
+			else g_dbg_zoomScale--;
+		}
+
+		SetWindowPos(g_hDbgWnd1, NULL, 0, 0, g_rect_width << g_dbg_zoomScale, g_rect_height << g_dbg_zoomScale, SWP_NOMOVE);
+		SetWindowPos(g_hDbgWnd2, NULL, 0, 0, g_rect_width << g_dbg_zoomScale, g_rect_height << g_dbg_zoomScale, SWP_NOMOVE);
+
+		InvalidateRect(g_hDbgWnd1, NULL, FALSE);
+		InvalidateRect(g_hDbgWnd2, NULL, FALSE);
+
+		return 0;
+	}
+	case WM_DESTROY:
+	{
+		DeleteObject(DbgBitmap2);
+		return 0;
+	}
+	}
+	return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
 
 LRESULT CALLBACK WndProc_Img(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -675,8 +819,17 @@ LRESULT CALLBACK WndProc_Img(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
 		case WM_CREATE:
 		{
-			strcat_s(g_argv_bmp, "_Sharpened.bmp");
-			strcat_s(g_argv_dbg, "_Sharpened_dbg.bmp");
+			// Create HPF kernel dlialog box 1, 2
+			if (!IsWindow(g_hDlgWnd1) || !IsWindow(g_hDlgWnd2))
+			{
+				HWND wnd_dlg1, wnd_dlg2;
+				wnd_dlg1 = CreateDialog(g_hInst, MAKEINTRESOURCE(IDD_DIALOG1), hWnd, WndProc_Dlg1);
+				wnd_dlg2 = CreateDialog(g_hInst, MAKEINTRESOURCE(IDD_DIALOG2), hWnd, WndProc_Dlg2);
+				ShowWindow(wnd_dlg1, SW_SHOW);
+				ShowWindow(wnd_dlg2, SW_SHOW);
+				g_hDlgWnd1 = wnd_dlg1;
+				g_hDlgWnd2 = wnd_dlg2;
+			}
 
 			return 0;
 		}
@@ -684,7 +837,7 @@ LRESULT CALLBACK WndProc_Img(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		{
 			if (MyBitmap) DeleteObject(MyBitmap);
 
-			MyBitmap = (HBITMAP)LoadImage(NULL, g_argv_bmp, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
+			MyBitmap = (HBITMAP)LoadImage(NULL, g_argv_img, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
 
 			hdc = BeginPaint(hWnd, &ps);
 			DrawBitmap(hdc, 0, 0, iWidth, iHeight, MyBitmap);
@@ -753,8 +906,6 @@ LRESULT CALLBACK WndProc_Img(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				g_RectH_s = ((lParam >> 16) & 0x0000FFFF) << -g_img_zoomScale;
 			}
 
-//			std::cout << "x1 = " << g_RectW_s << "\ty1 = " << g_RectH_s << std::endl;
-
 			return 0;
 		}
 		case WM_LBUTTONUP:
@@ -770,58 +921,97 @@ LRESULT CALLBACK WndProc_Img(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				g_RectH_e = ((lParam >> 16) & 0x0000FFFF) << -g_img_zoomScale;
 			}
 
-//			std::cout << "x2 = " << g_RectW_e << "\ty2 = " << g_RectH_e << std::endl;
-
 			hdc = GetDC(hWnd);
 			SelectObject(hdc, GetStockObject(NULL_BRUSH));
 
 			if (g_img_zoomScale >= 0) {
 				Rectangle(hdc, 
-					g_RectW_s << g_img_zoomScale, 
-					g_RectH_s << g_img_zoomScale, 
-					g_RectW_e << g_img_zoomScale, 
+					g_RectW_s << g_img_zoomScale,
+					g_RectH_s << g_img_zoomScale,
+					g_RectW_e << g_img_zoomScale,
 					g_RectH_e << g_img_zoomScale);
 			}
 			else {
 				Rectangle(hdc, 
-					g_RectW_s >> -g_img_zoomScale, 
-					g_RectH_s >> -g_img_zoomScale, 
-					g_RectW_e >> -g_img_zoomScale, 
+					g_RectW_s >> -g_img_zoomScale,
+					g_RectH_s >> -g_img_zoomScale,
+					g_RectW_e >> -g_img_zoomScale,
 					g_RectH_e >> -g_img_zoomScale);
 			}
 
 			ReleaseDC(hWnd, hdc);
 
-			if (g_hCropWnd) DestroyWindow(g_hCropWnd);
+			if (g_hDbgWnd1) DestroyWindow(g_hDbgWnd1);
+			if (g_hDbgWnd2) DestroyWindow(g_hDbgWnd2);
 
-			HWND wnd_crop;
-			WNDCLASS wc_crop;
-			char class_name_crop[] = "JJ_wnd_crop";
+			HWND wnd_dbg1, wnd_dbg2;
+			WNDCLASS wc_dbg1, wc_dbg2;
+			char class_name_dbg1[] = "JJ_wnd_dbg1";
+			char class_name_dbg2[] = "JJ_wnd_dbg2";
 
-			// Init Crop Window 
-			wc_crop.hbrBackground = (HBRUSH)COLOR_BACKGROUND + 1; // +0 = Gray, +1 = Light Gray, +2 = Black, +3 = Dark Gray
-			wc_crop.hCursor = LoadCursor(NULL, IDC_ARROW);
-			wc_crop.hIcon = LoadIcon(g_hInst, MAKEINTRESOURCE(IDI_ICON1));
-			wc_crop.hInstance = g_hInst;
-			wc_crop.lpfnWndProc = WndProc_Crop;
-			wc_crop.lpszClassName = class_name_crop;
-			wc_crop.cbClsExtra = NULL;
-			wc_crop.cbWndExtra = NULL;
-			wc_crop.lpszMenuName = NULL;
-			wc_crop.style = NULL;
-			RegisterClass(&wc_crop);
+			// Init Dbg Window 
+			wc_dbg1.hbrBackground = (HBRUSH)COLOR_BACKGROUND + 1; // +0 = Gray, +1 = Light Gray, +2 = Black, +3 = Dark Gray
+			wc_dbg1.hCursor = LoadCursor(NULL, IDC_ARROW);
+			wc_dbg1.hIcon = LoadIcon(g_hInst, MAKEINTRESOURCE(IDI_ICON1));
+			wc_dbg1.hInstance = g_hInst;
+			wc_dbg1.lpfnWndProc = WndProc_dbg1;
+			wc_dbg1.lpszClassName = class_name_dbg1;
+			wc_dbg1.cbClsExtra = NULL;
+			wc_dbg1.cbWndExtra = NULL;
+			wc_dbg1.lpszMenuName = NULL;
+			wc_dbg1.style = NULL;
 
-			if (g_RectW_s > g_RectW_e) {
-				wnd_crop = CreateWindow(class_name_crop, "Crop", WS_POPUP | WS_OVERLAPPEDWINDOW | WS_TABSTOP,
-					1200, 80, (g_RectW_s - g_RectW_e) << g_crop_zoomScale, (g_RectH_s - g_RectH_e) << g_crop_zoomScale, hWnd, NULL, NULL, NULL);
+			wc_dbg2 = wc_dbg1;
+			wc_dbg2.lpfnWndProc = WndProc_dbg2;
+			wc_dbg2.lpszClassName = class_name_dbg2;
+
+			RegisterClass(&wc_dbg1);
+			RegisterClass(&wc_dbg2);
+
+			//--------------------------------
+			// Decide starting x,y points
+			//--------------------------------
+			// if--------  else if---  else if---  else------
+			// |      * |  |      * |  | *      |  | *      |
+			// |   ¢Ö   |  |   ¢×   |  |   ¢Ø   |  |   ¢Ù   |  
+			// | *      |  | *      |  |      * |  |      * |
+			// ----------  ----------  ----------  ----------
+			if ( g_RectW_e > g_RectW_s && g_RectH_e < g_RectH_s )
+			{
+				g_rect_x = g_RectW_s;
+				g_rect_y = g_RectH_e;
 			}
-			else {
-				wnd_crop = CreateWindow(class_name_crop, "Crop", WS_POPUP | WS_OVERLAPPEDWINDOW | WS_TABSTOP,
-					1200, 80, (g_RectW_e - g_RectW_s) << g_crop_zoomScale, (g_RectH_e - g_RectH_s) << g_crop_zoomScale, hWnd, NULL, NULL, NULL);
+			else if ( g_RectW_e < g_RectW_s && g_RectH_e > g_RectH_s )
+			{
+				g_rect_x = g_RectW_e;
+				g_rect_y = g_RectH_s;
+			}
+			else if ( g_RectW_e < g_RectW_s && g_RectH_e < g_RectH_s )
+			{
+				g_rect_x = g_RectW_e;
+				g_rect_y = g_RectH_e;
+			}
+			else
+			{
+				g_rect_x = g_RectW_s;
+				g_rect_y = g_RectH_s;
 			}
 
-			ShowWindow(wnd_crop, SW_SHOW);
-			g_hCropWnd = wnd_crop;
+			// Get Rectangle's Width and Height
+			g_rect_width = abs(g_RectW_e - g_RectW_s);
+			g_rect_height = abs(g_RectH_e - g_RectH_s);
+
+			cout << g_rect_x << "\t" << g_rect_y << "\t" << g_rect_width << "\t" << g_rect_height << endl;
+
+			wnd_dbg1 = CreateWindow(class_name_dbg1, "dbg1", WS_POPUP | WS_OVERLAPPEDWINDOW | WS_TABSTOP,
+				 800, 80, g_rect_width << g_dbg_zoomScale, g_rect_height << g_dbg_zoomScale, hWnd, NULL, NULL, NULL);
+			wnd_dbg2 = CreateWindow(class_name_dbg2, "dbg2", WS_POPUP | WS_OVERLAPPEDWINDOW | WS_TABSTOP,
+				1600, 80, g_rect_width << g_dbg_zoomScale, g_rect_height << g_dbg_zoomScale, hWnd, NULL, NULL, NULL);
+
+			ShowWindow(wnd_dbg1, SW_SHOW);
+			ShowWindow(wnd_dbg2, SW_SHOW);
+			g_hDbgWnd1 = wnd_dbg1;
+			g_hDbgWnd2 = wnd_dbg2;
 
 			return 0;
 		}
@@ -840,9 +1030,10 @@ LRESULT CALLBACK WndProc_Img(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		case WM_DESTROY:
 		{
 			DeleteObject(MyBitmap);
-			DeleteObject(CropBitmap);
-//			DestroyWindow(g_hDlgWnd);
-			DestroyWindow(g_hCropWnd);
+			DeleteObject(DbgBitmap1);
+			DeleteObject(DbgBitmap2);
+			DestroyWindow(g_hDbgWnd1);
+			DestroyWindow(g_hDbgWnd2);
 			DeleteDC(hdc);
 			return 0;
 		}
@@ -861,22 +1052,17 @@ LRESULT CALLBACK WndProc_Main(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 			g_cur_x = 0;
 			g_cur_y = 0;
 
-			if (!IsWindow(g_hDlgWnd))
+			if (!IsWindow(g_hDlgWnd1) || !IsWindow(g_hDlgWnd2))
 			{
-				HWND wnd_dlg;
-				wnd_dlg = CreateDialog(g_hInst, MAKEINTRESOURCE(IDD_DIALOG1), hWnd, WndProc_Dlg);
-				ShowWindow(wnd_dlg, SW_SHOW);
-				g_hDlgWnd = wnd_dlg;
+				HWND wnd_dlg1, wnd_dlg2;
+				wnd_dlg1 = CreateDialog(g_hInst, MAKEINTRESOURCE(IDD_DIALOG1), hWnd, WndProc_Dlg1);
+				wnd_dlg2 = CreateDialog(g_hInst, MAKEINTRESOURCE(IDD_DIALOG2), hWnd, WndProc_Dlg2);
+				ShowWindow(wnd_dlg1, SW_SHOW);
+				ShowWindow(wnd_dlg2, SW_SHOW);
+				g_hDlgWnd1 = wnd_dlg1;
+				g_hDlgWnd2 = wnd_dlg2;
 			}
 
-			return 0;
-		}
-		case WM_COMMAND:
-		{
-			if (LOWORD(wParam) == 0)
-			{
-				MessageBox(hWnd, "Test Button Clicked", "Button", MB_OK);
-			}
 			return 0;
 		}
 		case WM_CLOSE:
@@ -903,10 +1089,16 @@ LRESULT CALLBACK WndProc_Main(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 				total_path += "\n";
 			}
 
-			Sharpening(g_argv);
+			// A dropped file name to each file name
+			strcpy_s(g_argv_img, g_argv);
+			strcpy_s(g_argv_dbg1, g_argv);
+			strcpy_s(g_argv_dbg2, g_argv);
+			strcat_s(g_argv_img, "_Sharpened.bmp");
+			strcat_s(g_argv_dbg1, "_Sharpened_dbg1.bmp");
+			strcat_s(g_argv_dbg2, "_Sharpened_dbg2.bmp");
 
-			strcpy_s(g_argv_bmp, g_argv);
-			strcpy_s(g_argv_dbg, g_argv);
+			Sharpening(g_argv, g_hpf_kernel1, g_hpf_coef1, g_argv_dbg1);
+			Sharpening(g_argv, g_hpf_kernel2, g_hpf_coef2, g_argv_dbg2);
 
 			HWND wnd_img;
 			WNDCLASS wc_img;
@@ -925,11 +1117,13 @@ LRESULT CALLBACK WndProc_Main(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 			wc_img.style = NULL;
 			RegisterClass(&wc_img);
 
-			if (g_img_zoomScale >= 0) {
+			if (g_img_zoomScale >= 0) 
+			{
 				wnd_img = CreateWindowEx(0, class_name_img, "Img", WS_OVERLAPPEDWINDOW | WS_CHILD | WS_TABSTOP,
 					10, 10, iWidth << g_img_zoomScale, iHeight << g_img_zoomScale, hWnd, NULL, NULL, NULL);
 			}
-			else {
+			else 
+			{
 				wnd_img = CreateWindowEx(0, class_name_img, "Img", WS_OVERLAPPEDWINDOW | WS_CHILD | WS_TABSTOP,
 					10, 10, iWidth >> -g_img_zoomScale, iHeight >> -g_img_zoomScale, hWnd, NULL, NULL, NULL);
 			}
@@ -982,7 +1176,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	while (GetMessage(&msg, NULL, 0, 0))
 	{
-		if (!IsDialogMessage(g_hDlgWnd, &msg))
+		if (!IsDialogMessage(g_hDlgWnd1, &msg) && !IsDialogMessage(g_hDlgWnd2, &msg))
 		{
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
